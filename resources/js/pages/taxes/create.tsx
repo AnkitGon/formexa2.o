@@ -1,45 +1,38 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
-import SalarySlipForm from './salary-slip-form';
+import TaxForm from './tax-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Salary Slips',
-        href: '/salary-slip',
+        title: 'Taxes',
+        href: '/taxes',
     },
     {
         title: 'Create',
-        href: '/salary-slip/create',
+        href: '/taxes/create',
     },
 ];
 
-export default function SalarySlipCreate() {
-    const { templates, taxes } = usePage<
-        SharedData & { templates: any[]; taxes: any[] }
-    >().props;
+export default function TaxCreate() {
+    const { typeOptions } = usePage<SharedData & { typeOptions: any }>().props;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Create Salary Slip" />
+            <Head title="Create Tax" />
 
             <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-lg font-semibold">Create Salary Slip</h1>
+                    <h1 className="text-lg font-semibold">Create Tax</h1>
                     <Link
-                        href="/salary-slip"
+                        href="/taxes"
                         className="rounded-md border border-sidebar-border/70 px-3 py-2 text-sm"
                     >
                         Back
                     </Link>
                 </div>
 
-                <SalarySlipForm
-                    mode="create"
-                    action="/salary-slip"
-                    templates={templates}
-                    taxes={taxes}
-                />
+                <TaxForm mode="create" action="/taxes" typeOptions={typeOptions} />
             </div>
         </AppLayout>
     );

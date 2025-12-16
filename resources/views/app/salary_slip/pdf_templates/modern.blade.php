@@ -108,6 +108,29 @@
     }
 
     $infoRows = max(count($payslipRows), count($employeeRows));
+
+    $earnings = $meta['earnings'] ?? [];
+    $deductions = $meta['deductions'] ?? [];
+
+    if (! is_array($earnings)) {
+        $earnings = [];
+    }
+    if (! is_array($deductions)) {
+        $deductions = [];
+    }
+
+    $maxRows = max(count($earnings), count($deductions));
+
+    $basic = (float) ($salarySlip->basic_salary ?? 0);
+    $allowance = (float) ($salarySlip->allowance_amount ?? 0);
+    $deductionAmount = (float) ($salarySlip->deduction_amount ?? 0);
+    $totalEarnings = $basic + $allowance;
+    $totalDeductions = $deductionAmount;
+    $netSalary = (float) ($salarySlip->net_salary ?? $totalEarnings - $totalDeductions);
+
+    $netPayInWords = $meta['net_pay_in_words'] ?? null;
+    $showNetPayInWords = $meta['show_net_pay_in_words'] ?? true;
+    $showNetPayInWords = ! ($showNetPayInWords === false || $showNetPayInWords === 0 || $showNetPayInWords === '0');
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -176,7 +199,7 @@
         }
 
         .summary-row th {
-            background: {{ $accentColor }};
+            background: {{ $primaryColor }};
             color: #f9fafb;
         }
 
@@ -298,26 +321,70 @@
 
         <table class="grid">
             <tr>
+                <th colspan="2">Earnings</th>
+                <th colspan="2">Deductions</th>
+            </tr>
+            <tr>
+                <th>Description</th>
+                <th class="text-right">Amount</th>
                 <th>Description</th>
                 <th class="text-right">Amount</th>
             </tr>
-            <tr>
-                <td>Basic Salary</td>
-                <td class="text-right">{{ number_format($salarySlip->basic_salary, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Allowances</td>
-                <td class="text-right">{{ number_format($salarySlip->allowance_amount, 2) }}</td>
-            </tr>
-            <tr>
-                <td>Deductions</td>
-                <td class="text-right">{{ number_format($salarySlip->deduction_amount, 2) }}</td>
+
+            @if ($maxRows > 0)
+                @for ($i = 0; $i < $maxRows; $i++)
+                    @php
+                        $earning = $earnings[$i] ?? null;
+                        $deduction = $deductions[$i] ?? null;
+                    @endphp
+                    <tr>
+                        <td>{{ $earning['label'] ?? '' }}</td>
+                        <td class="text-right">
+                            @if (isset($earning['amount']))
+                                {{ number_format((float) $earning['amount'], 2) }}
+                            @endif
+                        </td>
+                        <td>{{ $deduction['label'] ?? '' }}</td>
+                        <td class="text-right">
+                            @if (isset($deduction['amount']))
+                                {{ number_format((float) $deduction['amount'], 2) }}
+                            @endif
+                        </td>
+                    </tr>
+                @endfor
+            @else
+                <tr>
+                    <td>Basic Salary</td>
+                    <td class="text-right">{{ number_format($basic, 2) }}</td>
+                    <td>Deductions</td>
+                    <td class="text-right">{{ number_format($deductionAmount, 2) }}</td>
+                </tr>
+                <tr>
+                    <td>Allowances</td>
+                    <td class="text-right">{{ number_format($allowance, 2) }}</td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            @endif
+
+            <tr class="summary-row">
+                <th>Total Earnings</th>
+                <th class="text-right">{{ number_format($totalEarnings, 2) }}</th>
+                <th>Total Deductions</th>
+                <th class="text-right">{{ number_format($totalDeductions, 2) }}</th>
             </tr>
             <tr class="summary-row">
+                <th colspan="2"></th>
                 <th>Net Salary</th>
-                <th class="text-right">{{ number_format($salarySlip->net_salary, 2) }}</th>
+                <th class="text-right">{{ number_format($netSalary, 2) }}</th>
             </tr>
         </table>
+
+        @if ($showNetPayInWords && ! empty($netPayInWords))
+            <p class="muted" style="margin-top: 10px;">
+                <strong>Net Pay in words:</strong> {{ $netPayInWords }}
+            </p>
+        @endif
 
         @if ($hasEmployerSignature || $hasEmployeeSignature || ! empty($is_preview))
             <div class="page-footer">

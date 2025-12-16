@@ -13,7 +13,7 @@ import {
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, FileText, Folder, LayoutGrid, LayoutTemplate } from 'lucide-react';
+import { BookOpen, FileText, Folder, Landmark, LayoutGrid, LayoutTemplate } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -31,6 +31,11 @@ const mainNavItems: NavItem[] = [
         title: 'Salary Slip Templates',
         href: '/template/salary-slip',
         icon: LayoutTemplate,
+    },
+    {
+        title: 'Taxes',
+        href: '/taxes',
+        icon: Landmark,
     },
 ];
 

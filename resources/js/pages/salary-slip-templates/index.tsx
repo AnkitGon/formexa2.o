@@ -60,6 +60,11 @@ export default function SalarySlipTemplateIndex() {
                                                 method="post"
                                                 action={`/template/salary-slip/${t.id}`}
                                                 className="inline"
+                                                onSubmit={(e) => {
+                                                    if (!window.confirm('Are you sure you want to delete this item?')) {
+                                                        e.preventDefault();
+                                                    }
+                                                }}
                                             >
                                                 <input type="hidden" name="_method" value="DELETE" />
                                                 <button

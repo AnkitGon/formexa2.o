@@ -146,7 +146,7 @@ class SalarySlipTemplateController extends Controller
             'worked_days' => 26,
             'employee_name' => 'Sally Harley',
             'employee_code' => 'EMP-001',
-            'designation' => 'Marketing Executive',
+            'designation' => 'Marketing',
 
             'payslip_extra' => [
                 ['label' => 'Location', 'value' => 'Head Office'],

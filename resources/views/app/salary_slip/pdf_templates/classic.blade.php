@@ -122,6 +122,8 @@
     $netSalary = (float) ($salarySlip->net_salary ?? $totalEarnings - $totalDeductions);
 
     $netPayInWords = $meta['net_pay_in_words'] ?? null;
+    $showNetPayInWords = $meta['show_net_pay_in_words'] ?? true;
+    $showNetPayInWords = ! ($showNetPayInWords === false || $showNetPayInWords === 0 || $showNetPayInWords === '0');
 
     $employerSignature = $meta['employer_signature'] ?? null;
     $employeeSignature = $meta['employee_signature'] ?? null;
@@ -406,7 +408,7 @@
             </tr>
         </table>
 
-        @if (! empty($netPayInWords))
+        @if ($showNetPayInWords && ! empty($netPayInWords))
             <div class="netpay-block">
                 <div class="netpay-number">Net Pay: {{ number_format($netSalary, 2) }}</div>
                 <div class="netpay-words">{{ $netPayInWords }}</div>
