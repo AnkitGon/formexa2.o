@@ -1,0 +1,353 @@
+@php
+    $primaryColor = $template->primary_color ?? '#1f2937';
+    $accentColor = $template->accent_color ?? '#111827';
+    $textColor = $template->secondary_color ?? '#333333';
+    $fontFamily = $template->font_family ?? 'DejaVu Sans, sans-serif';
+    $fontSize = $template->font_size ?? 11;
+    $lineHeight = $template->line_height ?? (int) round($fontSize * 1.4);
+
+    $meta = $salarySlip->meta ?? [];
+    if (!is_array($meta)) {
+        $meta = [];
+    }
+
+    $heading = trim((string) ($meta['heading'] ?? 'Payslip'));
+    $companyName = trim((string) ($meta['company_name'] ?? ''));
+    $companyAddress = $meta['company_address'] ?? '';
+    if (is_string($companyAddress)) {
+        $companyAddressLines = preg_split('/\r\n|\r|\n/', $companyAddress);
+    } elseif (is_array($companyAddress)) {
+        $companyAddressLines = $companyAddress;
+    } else {
+        $companyAddressLines = [];
+    }
+    $payPeriod = trim((string) ($meta['pay_period'] ?? ($salarySlip->pay_period ?? '')));
+
+    $employerSignature = $meta['employer_signature'] ?? null;
+    $employeeSignature = $meta['employee_signature'] ?? null;
+
+    $hasEmployerSignature = is_string($employerSignature) && trim($employerSignature) !== '';
+    $hasEmployeeSignature = is_string($employeeSignature) && trim($employeeSignature) !== '';
+
+    $payslipLabels = $meta['payslip_labels'] ?? [];
+    $employeeLabels = $meta['employee_labels'] ?? [];
+    $payslipExtra = $meta['payslip_extra'] ?? [];
+    $employeeExtra = $meta['employee_extra'] ?? [];
+
+    if (!is_array($payslipLabels)) {
+        $payslipLabels = [];
+    }
+    if (!is_array($employeeLabels)) {
+        $employeeLabels = [];
+    }
+    if (!is_array($payslipExtra)) {
+        $payslipExtra = [];
+    }
+    if (!is_array($employeeExtra)) {
+        $employeeExtra = [];
+    }
+
+    $payslipRows = [];
+    foreach ($payslipLabels as $key => $label) {
+        $label = trim((string) $label);
+        if ($label === '') {
+            continue;
+        }
+
+        $value = $meta[$key] ?? ($salarySlip->{$key} ?? null);
+        if ($value === null || $value === '') {
+            continue;
+        }
+
+        $payslipRows[] = [
+            'label' => $label,
+            'value' => $value,
+        ];
+    }
+
+    foreach ($payslipExtra as $item) {
+        $label = trim((string) ($item['label'] ?? ''));
+        if ($label === '') {
+            continue;
+        }
+
+        $payslipRows[] = [
+            'label' => $label,
+            'value' => $item['value'] ?? '',
+        ];
+    }
+
+    $employeeRows = [];
+    foreach ($employeeLabels as $key => $label) {
+        $label = trim((string) $label);
+        if ($label === '') {
+            continue;
+        }
+
+        $value = $meta[$key] ?? ($salarySlip->{$key} ?? null);
+        if ($value === null || $value === '') {
+            continue;
+        }
+
+        $employeeRows[] = [
+            'label' => $label,
+            'value' => $value,
+        ];
+    }
+
+    foreach ($employeeExtra as $item) {
+        $label = trim((string) ($item['label'] ?? ''));
+        if ($label === '') {
+            continue;
+        }
+
+        $employeeRows[] = [
+            'label' => $label,
+            'value' => $item['value'] ?? '',
+        ];
+    }
+
+    $infoRows = max(count($payslipRows), count($employeeRows));
+@endphp
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Salary Slip #{{ $salarySlip->id }} - Modern</title>
+    <style>
+        @page {
+            margin: 18px 18px;
+        }
+
+        body {
+            font-family: {{ $fontFamily }};
+            font-size: {{ $fontSize }}px;
+            color: {{ $textColor }};
+            line-height: {{ $lineHeight }}px;
+        }
+
+        .wrapper {
+            width: 92%;
+            max-width: 760px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 18px 18px;
+            padding-bottom: 170px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            margin-bottom: 18px;
+            padding: 10px 12px;
+            background: {{ $primaryColor }};
+            color: #f9fafb;
+        }
+
+        .header-title {
+            font-size: 1.45em;
+            font-weight: bold;
+        }
+
+        .header-sub {
+            font-size: 1em;
+        }
+
+        .grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
+
+        .grid td,
+        .grid th {
+            padding: 4px 6px;
+            border: 1px solid {{ $accentColor }};
+        }
+
+        .grid th {
+            background: {{ $primaryColor }};
+            color: #ffffff;
+            text-align: left;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .summary-row th {
+            background: {{ $accentColor }};
+            color: #f9fafb;
+        }
+
+        .muted {
+            color: #6b7280;
+            font-size: 0.9em;
+        }
+
+        .signature-grid {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0;
+        }
+
+        .signature-cell {
+            width: 50%;
+            vertical-align: top;
+        }
+
+        .signature-label {
+            font-size: 0.9em;
+            margin-bottom: 6px;
+        }
+
+        .signature-image {
+            display: block;
+            width: 100%;
+            max-width: 320px;
+            height: 42px;
+            object-fit: contain;
+            margin-bottom: 6px;
+        }
+
+        .signature-image.right {
+            margin-left: auto;
+        }
+
+        .signature-line {
+            border-top: 1px solid #111827;
+            width: 100%;
+            max-width: 320px;
+            height: 1px;
+            display: block;
+        }
+
+        .signature-line.right {
+            margin-left: auto;
+        }
+
+        .page-footer {
+            position: fixed;
+            left: 18px;
+            right: 18px;
+            bottom: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrapper">
+        <div class="header">
+            @if ($heading !== '')
+                <div class="header-title">{{ $heading }}</div>
+            @endif
+
+            @if ($companyName !== '' || $payPeriod !== '')
+                <div class="header-sub">
+                    @if ($companyName !== '')
+                        {{ $companyName }}
+                        @if ($payPeriod !== '')
+                            &mdash;
+                        @endif
+                    @endif
+                    @if ($payPeriod !== '')
+                        Period: {{ $payPeriod }}
+                    @endif
+                </div>
+            @endif
+
+            @if (!empty($companyAddressLines))
+                <div class="header-sub">
+                    @foreach ($companyAddressLines as $line)
+                        {{ $line }}@if (!$loop->last)
+                            <br>
+                        @endif
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        <table class="grid">
+            @for ($i = 0; $i < $infoRows; $i++)
+                @php
+                    $left = $payslipRows[$i] ?? null;
+                    $right = $employeeRows[$i] ?? null;
+                    $leftLabel = $left['label'] ?? '';
+                    $rightLabel = $right['label'] ?? '';
+                @endphp
+
+                @if ($leftLabel !== '' || $rightLabel !== '')
+                    <tr>
+                        <th>{{ $leftLabel }}</th>
+                        <td>
+                            @if ($leftLabel !== '')
+                                {{ $left['value'] ?? '' }}
+                            @endif
+                        </td>
+
+                        <th>{{ $rightLabel }}</th>
+                        <td>
+                            @if ($rightLabel !== '')
+                                {{ $right['value'] ?? '' }}
+                            @endif
+                        </td>
+                    </tr>
+                @endif
+            @endfor
+        </table>
+
+        <table class="grid">
+            <tr>
+                <th>Description</th>
+                <th class="text-right">Amount</th>
+            </tr>
+            <tr>
+                <td>Basic Salary</td>
+                <td class="text-right">{{ number_format($salarySlip->basic_salary, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Allowances</td>
+                <td class="text-right">{{ number_format($salarySlip->allowance_amount, 2) }}</td>
+            </tr>
+            <tr>
+                <td>Deductions</td>
+                <td class="text-right">{{ number_format($salarySlip->deduction_amount, 2) }}</td>
+            </tr>
+            <tr class="summary-row">
+                <th>Net Salary</th>
+                <th class="text-right">{{ number_format($salarySlip->net_salary, 2) }}</th>
+            </tr>
+        </table>
+
+        @if ($hasEmployerSignature || $hasEmployeeSignature || ! empty($is_preview))
+            <div class="page-footer">
+                @if ($hasEmployerSignature || $hasEmployeeSignature)
+                    <table class="signature-grid">
+                        <tr>
+                            @if ($hasEmployerSignature)
+                                <td class="signature-cell">
+                                    <div class="signature-label">Employer Signature</div>
+                                    <img class="signature-image" src="{{ $employerSignature }}" alt="Employer Signature">
+                                    <div class="signature-line"></div>
+                                </td>
+                            @endif
+                            @if ($hasEmployeeSignature)
+                                <td class="signature-cell" style="text-align: right;">
+                                    <div class="signature-label">Employee Signature</div>
+                                    <img class="signature-image right" src="{{ $employeeSignature }}" alt="Employee Signature">
+                                    <div class="signature-line right"></div>
+                                </td>
+                            @endif
+                        </tr>
+                    </table>
+                @endif
+
+                @if (! empty($is_preview))
+                    <p class="muted">This is a system generated salary slip.</p>
+                @endif
+            </div>
+        @endif
+    </div>
+</body>
+
+</html>
