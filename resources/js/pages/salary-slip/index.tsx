@@ -31,9 +31,8 @@ export default function SalarySlipIndex() {
                     <table className="w-full text-sm">
                         <thead className="border-b border-sidebar-border/70 bg-muted/30 text-left">
                             <tr>
-                                <th className="px-3 py-2">Employee</th>
-                                <th className="px-3 py-2">Period</th>
                                 <th className="px-3 py-2">Template</th>
+                                <th className="px-3 py-2">Employee</th>
                                 <th className="px-3 py-2 text-right">Net Salary</th>
                                 <th className="px-3 py-2 text-right">Actions</th>
                             </tr>
@@ -45,13 +44,10 @@ export default function SalarySlipIndex() {
                                     className="border-b border-sidebar-border/50 last:border-b-0"
                                 >
                                     <td className="px-3 py-2">
-                                        {slip.meta?.employee_name ?? ''}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {slip.meta?.pay_period ?? ''}
-                                    </td>
-                                    <td className="px-3 py-2">
                                         {slip.template?.name ?? ''}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        {slip.meta?.employee_name ?? ''}
                                     </td>
                                     <td className="px-3 py-2 text-right">
                                         {Number(slip.net_salary ?? 0).toFixed(2)}
@@ -59,19 +55,17 @@ export default function SalarySlipIndex() {
                                     <td className="px-3 py-2">
                                         <div className="flex justify-end gap-2">
                                             <Link
+                                                href={`/salary-slip/${slip.id}`}
+                                                className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
+                                            >
+                                                View
+                                            </Link>
+                                            <Link
                                                 href={`/salary-slip/${slip.id}/edit`}
                                                 className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
                                             >
                                                 Edit
                                             </Link>
-                                            <a
-                                                href={`/salary-slip/${slip.id}/pdf`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
-                                            >
-                                                PDF
-                                            </a>
                                             <a
                                                 href={`/salary-slip/${slip.id}/download`}
                                                 className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"

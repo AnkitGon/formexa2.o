@@ -25,6 +25,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
             Route::post('/preview', 'preview')->name('preview');
+            Route::get('/{salarySlip}', 'show')->name('show');
             Route::get('/{salarySlip}/edit', 'edit')->name('edit');
             Route::put('/{salarySlip}', 'update')->name('update');
             Route::delete('/{salarySlip}', 'destroy')->name('destroy');
@@ -51,11 +52,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->controller(TaxController::class)
         ->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::get('/create', 'create')->name('create');
             Route::post('/', 'store')->name('store');
-            Route::get('/{tax}/edit', 'edit')->name('edit');
-            Route::put('/{tax}', 'update')->name('update');
-            Route::delete('/{tax}', 'destroy')->name('destroy');
+            Route::put('/{tax}', 'update')->whereNumber('tax')->name('update');
+            Route::delete('/{tax}', 'destroy')->whereNumber('tax')->name('destroy');
         });
 });
 

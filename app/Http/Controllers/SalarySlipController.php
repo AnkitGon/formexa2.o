@@ -6,11 +6,42 @@ use App\Models\DocumentTemplate;
 use App\Models\SalarySlip;
 use App\Models\Tax;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class SalarySlipController extends Controller
 {
+    private function normalizeStoredSignaturePath($value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, 'data:image/')) {
+            return $value;
+        }
+
+        $path = $value;
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            $urlPath = parse_url($value, PHP_URL_PATH);
+            if (is_string($urlPath) && $urlPath !== '') {
+                $path = $urlPath;
+            }
+        }
+
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        return '/' . ltrim($path, '/');
+    }
+
     private function signatureSrcForPdf($value): ?string
     {
         if (! is_string($value)) {
@@ -44,6 +75,27 @@ class SalarySlipController extends Controller
         $path = '/' . ltrim($path, '/');
 
         if (str_starts_with($path, '/storage/')) {
+            $diskPath = ltrim(Str::after($path, '/storage/'), '/');
+
+            if (Storage::disk('public')->exists($diskPath)) {
+                $data = Storage::disk('public')->get($diskPath);
+                if (is_string($data) && $data !== '') {
+                    $mime = null;
+                    $fullDiskPath = Storage::disk('public')->path($diskPath);
+                    if (is_string($fullDiskPath) && is_file($fullDiskPath)) {
+                        $maybeMime = mime_content_type($fullDiskPath);
+                        if (is_string($maybeMime) && $maybeMime !== '') {
+                            $mime = $maybeMime;
+                        }
+                    }
+                    if (! is_string($mime) || $mime === '') {
+                        $mime = 'image/png';
+                    }
+
+                    return 'data:' . $mime . ';base64,' . base64_encode($data);
+                }
+            }
+
             $fullPath = public_path(ltrim($path, '/'));
             if (is_file($fullPath)) {
                 $mime = mime_content_type($fullPath);
@@ -67,6 +119,38 @@ class SalarySlipController extends Controller
             $meta = [];
         }
 
+        $meta = $this->applyTaxLabelsToDeductions($meta);
+
+        $legacyShow = $meta['show_signatures_in_pdf'] ?? true;
+        $legacyShow = ! ($legacyShow === false || $legacyShow === 0 || $legacyShow === '0');
+
+        $showEmployer = $meta['show_employer_signature_in_pdf'] ?? null;
+        if ($showEmployer === null || $showEmployer === '') {
+            $showEmployer = $legacyShow;
+        } else {
+            $showEmployer = ! ($showEmployer === false || $showEmployer === 0 || $showEmployer === '0');
+        }
+
+        $showEmployee = $meta['show_employee_signature_in_pdf'] ?? null;
+        if ($showEmployee === null || $showEmployee === '') {
+            $showEmployee = $legacyShow;
+        } else {
+            $showEmployee = ! ($showEmployee === false || $showEmployee === 0 || $showEmployee === '0');
+        }
+
+        if (! $showEmployer) {
+            $meta['employer_signature'] = null;
+        }
+        if (! $showEmployee) {
+            $meta['employee_signature'] = null;
+        }
+
+        if (! $showEmployer && ! $showEmployee) {
+            $salarySlip->meta = $meta;
+
+            return $salarySlip;
+        }
+
         if (array_key_exists('employer_signature', $meta)) {
             $meta['employer_signature'] = $this->signatureSrcForPdf($meta['employer_signature']);
         }
@@ -77,6 +161,65 @@ class SalarySlipController extends Controller
         $salarySlip->meta = $meta;
 
         return $salarySlip;
+    }
+
+    private function applyTaxLabelsToDeductions(array $meta): array
+    {
+        $deductions = $meta['deductions'] ?? [];
+        if (! is_array($deductions)) {
+            return $meta;
+        }
+
+        $taxIds = [];
+        foreach ($deductions as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $taxId = $row['tax_id'] ?? null;
+            if ($taxId === null || $taxId === '') {
+                continue;
+            }
+            $taxIds[] = (int) $taxId;
+        }
+
+        $taxIds = array_values(array_unique(array_filter($taxIds)));
+        if (count($taxIds) === 0) {
+            return $meta;
+        }
+
+        $taxesById = Tax::whereIn('id', $taxIds)->get()->keyBy('id');
+
+        foreach ($deductions as $i => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $taxId = $row['tax_id'] ?? null;
+            if ($taxId === null || $taxId === '') {
+                continue;
+            }
+
+            $tax = $taxesById->get((int) $taxId);
+            if (! $tax) {
+                continue;
+            }
+            $nameLabel = trim((string) ($tax->name ?? ''));
+            if ($nameLabel === '') {
+                continue;
+            }
+
+            if ((string) $tax->type === 'percentage') {
+                $valueLabel = (float) ($tax->value ?? 0);
+                $valueLabel = rtrim(rtrim(number_format($valueLabel, 2, '.', ''), '0'), '.');
+                $deductions[$i]['label'] = $nameLabel . ' (' . $valueLabel . '%)';
+            } else {
+                $deductions[$i]['label'] = $nameLabel;
+            }
+        }
+
+        $meta['deductions'] = $deductions;
+
+        return $meta;
     }
 
     private function storeSignatureDataUrl(string $dataUrl, string $prefix): ?string
@@ -112,7 +255,7 @@ class SalarySlipController extends Controller
         $path = 'signatures/' . $prefix . '-' . uniqid('', true) . '.' . $ext;
         Storage::disk('public')->put($path, $binary);
 
-        return asset('storage/' . $path);
+        return '/storage/' . ltrim($path, '/');
     }
 
     private function handleSignatureUploads(Request $request, array $meta): array
@@ -120,22 +263,32 @@ class SalarySlipController extends Controller
         if ($request->hasFile('employer_signature_file')) {
             $path = $request->file('employer_signature_file')
                 ->store('signatures', 'public');
-            $meta['employer_signature'] = asset('storage/' . $path);
+            $meta['employer_signature'] = '/storage/' . ltrim($path, '/');
         } elseif (! empty($meta['employer_signature']) && is_string($meta['employer_signature'])) {
             $stored = $this->storeSignatureDataUrl($meta['employer_signature'], 'employer');
             if ($stored) {
                 $meta['employer_signature'] = $stored;
+            } else {
+                $normalized = $this->normalizeStoredSignaturePath($meta['employer_signature']);
+                if ($normalized) {
+                    $meta['employer_signature'] = $normalized;
+                }
             }
         }
 
         if ($request->hasFile('employee_signature_file')) {
             $path = $request->file('employee_signature_file')
                 ->store('signatures', 'public');
-            $meta['employee_signature'] = asset('storage/' . $path);
+            $meta['employee_signature'] = '/storage/' . ltrim($path, '/');
         } elseif (! empty($meta['employee_signature']) && is_string($meta['employee_signature'])) {
             $stored = $this->storeSignatureDataUrl($meta['employee_signature'], 'employee');
             if ($stored) {
                 $meta['employee_signature'] = $stored;
+            } else {
+                $normalized = $this->normalizeStoredSignaturePath($meta['employee_signature']);
+                if ($normalized) {
+                    $meta['employee_signature'] = $normalized;
+                }
             }
         }
 
@@ -324,7 +477,16 @@ class SalarySlipController extends Controller
                 $amount = (float) $tax->value;
             }
 
-            $deductions[$i]['label'] = $tax->name;
+            $nameLabel = trim((string) ($tax->name ?? ''));
+            if ($nameLabel !== '') {
+                if ((string) $tax->type === 'percentage') {
+                    $valueLabel = (float) ($tax->value ?? 0);
+                    $valueLabel = rtrim(rtrim(number_format($valueLabel, 2, '.', ''), '0'), '.');
+                    $deductions[$i]['label'] = $nameLabel . ' (' . $valueLabel . '%)';
+                } else {
+                    $deductions[$i]['label'] = $nameLabel;
+                }
+            }
             $deductions[$i]['amount'] = round($amount, 2);
         }
 
@@ -401,6 +563,10 @@ class SalarySlipController extends Controller
             'meta.employer_signature' => 'nullable|string',
             'meta.employee_signature' => 'nullable|string',
 
+            'meta.show_signatures_in_pdf' => 'nullable|boolean',
+            'meta.show_employer_signature_in_pdf' => 'nullable|boolean',
+            'meta.show_employee_signature_in_pdf' => 'nullable|boolean',
+
             'meta.net_pay_in_words' => 'nullable|string|max:255',
             'meta.show_net_pay_in_words' => 'nullable|boolean',
 
@@ -423,8 +589,8 @@ class SalarySlipController extends Controller
             'meta.deductions.*.amount' => 'nullable|numeric',
             'meta.deductions.*.tax_id' => 'nullable|exists:taxes,id',
 
-            'employer_signature_file' => 'nullable|file|image|max:4096',
-            'employee_signature_file' => 'nullable|file|image|max:4096',
+            'employer_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'employee_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
 
         $meta = $request->input('meta', []);
@@ -515,6 +681,21 @@ class SalarySlipController extends Controller
         ]);
     }
 
+    public function show(SalarySlip $salarySlip)
+    {
+        $salarySlip->loadMissing('template');
+
+        $meta = $salarySlip->meta ?? [];
+        if (! is_array($meta)) {
+            $meta = [];
+        }
+        $salarySlip->meta = $this->applyTaxLabelsToDeductions($meta);
+
+        return Inertia::render('salary-slip/show', [
+            'salarySlip' => $salarySlip,
+        ]);
+    }
+
     public function update(Request $request, SalarySlip $salarySlip)
     {
         $data = $request->validate([
@@ -530,6 +711,10 @@ class SalarySlipController extends Controller
 
             'meta.employer_signature' => 'nullable|string',
             'meta.employee_signature' => 'nullable|string',
+
+            'meta.show_signatures_in_pdf' => 'nullable|boolean',
+            'meta.show_employer_signature_in_pdf' => 'nullable|boolean',
+            'meta.show_employee_signature_in_pdf' => 'nullable|boolean',
 
             'meta.net_pay_in_words' => 'nullable|string|max:255',
             'meta.show_net_pay_in_words' => 'nullable|boolean',
@@ -553,8 +738,8 @@ class SalarySlipController extends Controller
             'meta.deductions.*.amount' => 'nullable|numeric',
             'meta.deductions.*.tax_id' => 'nullable|exists:taxes,id',
 
-            'employer_signature_file' => 'nullable|file|image|max:4096',
-            'employee_signature_file' => 'nullable|file|image|max:4096',
+            'employer_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'employee_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
         ]);
 
         if ($request->exists('meta')) {

@@ -4,6 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Form, Link } from '@inertiajs/react';
 import { Minus, Plus } from 'lucide-react';
 import React from 'react';
@@ -67,6 +75,32 @@ export default function SalarySlipForm({
 }: Props) {
     const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
+    const signaturePreviewSrc = useCallback((value: string) => {
+        const v = String(value ?? '').trim();
+        if (!v) {
+            return '';
+        }
+        if (v.startsWith('data:image/')) {
+            return v;
+        }
+        if (v.startsWith('http://') || v.startsWith('https://')) {
+            return v;
+        }
+        if (v.startsWith('/')) {
+            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+            return origin ? `${origin}${v}` : v;
+        }
+        return v;
+    }, []);
+
+    const [documentTemplateId, setDocumentTemplateId] = useState<string>(() =>
+        String(
+            mode === 'edit'
+                ? salarySlip?.document_template_id ?? ''
+                : templates?.[0]?.id ?? '',
+        ),
+    );
+
     const tryShowNativeDatePicker = (el: HTMLInputElement) => {
         const maybe = el as HTMLInputElement & { showPicker?: () => void };
         try {
@@ -85,6 +119,30 @@ export default function SalarySlipForm({
             ? String(salarySlip?.meta?.employee_signature ?? '')
             : '',
     );
+
+    const [employerSignatureFileError, setEmployerSignatureFileError] =
+        useState<string>('');
+    const [employeeSignatureFileError, setEmployeeSignatureFileError] =
+        useState<string>('');
+
+    const validateSignatureFile = useCallback((file: File | null) => {
+        if (!file) {
+            return '';
+        }
+
+        const allowedMimeTypes = new Set([
+            'image/png',
+            'image/jpeg',
+            'image/jpg',
+            'image/webp',
+        ]);
+
+        if (!allowedMimeTypes.has(file.type)) {
+            return 'Only image files are allowed (PNG, JPG, JPEG, WEBP).';
+        }
+
+        return '';
+    }, []);
 
     const [employerSignatureMode, setEmployerSignatureMode] = useState<
         'draw' | 'upload'
@@ -295,6 +353,44 @@ export default function SalarySlipForm({
         return true;
     });
 
+    const [showEmployerSignatureInPdf, setShowEmployerSignatureInPdf] =
+        useState<boolean>(() => {
+            const raw = (salarySlip as any)?.meta?.show_employer_signature_in_pdf;
+            if (raw === undefined || raw === null || raw === '') {
+                const legacy = (salarySlip as any)?.meta?.show_signatures_in_pdf;
+                if (legacy === undefined || legacy === null || legacy === '') {
+                    return true;
+                }
+                if (legacy === false || legacy === 0 || legacy === '0') {
+                    return false;
+                }
+                return true;
+            }
+            if (raw === false || raw === 0 || raw === '0') {
+                return false;
+            }
+            return true;
+        });
+
+    const [showEmployeeSignatureInPdf, setShowEmployeeSignatureInPdf] =
+        useState<boolean>(() => {
+            const raw = (salarySlip as any)?.meta?.show_employee_signature_in_pdf;
+            if (raw === undefined || raw === null || raw === '') {
+                const legacy = (salarySlip as any)?.meta?.show_signatures_in_pdf;
+                if (legacy === undefined || legacy === null || legacy === '') {
+                    return true;
+                }
+                if (legacy === false || legacy === 0 || legacy === '0') {
+                    return false;
+                }
+                return true;
+            }
+            if (raw === false || raw === 0 || raw === '0') {
+                return false;
+            }
+            return true;
+        });
+
     const numberToWords = (n: number): string => {
         const ones = [
             '',
@@ -394,6 +490,26 @@ export default function SalarySlipForm({
         return map;
     }, [taxes]);
 
+    const taxLabelForDisplay = useCallback((tax: TaxRow) => {
+        const name = String(tax?.name ?? '').trim();
+        const type = String(tax?.type ?? '').trim();
+        if (!name) {
+            return '';
+        }
+
+        if (type === 'percentage') {
+            const raw = Number(tax?.value);
+            if (Number.isFinite(raw)) {
+                const formatted = Number.isInteger(raw)
+                    ? String(raw)
+                    : String(raw).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+                return `${name} (${formatted}%)`;
+            }
+        }
+
+        return name;
+    }, []);
+
     const computeTaxAmount = useCallback(
         (tax: TaxRow | null) => {
             if (!tax) {
@@ -434,7 +550,7 @@ export default function SalarySlipForm({
                 }
 
                 const amount = computeTaxAmount(tax);
-                const label = tax.name ?? row.label;
+                const label = taxLabelForDisplay(tax) || row.label;
 
                 if (row.amount !== amount || row.label !== label) {
                     changed = true;
@@ -498,7 +614,7 @@ export default function SalarySlipForm({
             id="salarySlipForm"
             method="post"
             action={action}
-            className="space-y-6"
+            className="mx-auto max-w-6xl space-y-6 px-4 pb-10"
             encType="multipart/form-data"
         >
             {({ processing, errors }) => (
@@ -511,93 +627,113 @@ export default function SalarySlipForm({
                     <input type="hidden" name="allowance_amount" value={allowanceAmount} />
                     <input type="hidden" name="deduction_amount" value={deductionAmount} />
 
-                    <div className="grid gap-2">
-                        <div className="flex items-start justify-between gap-3">
+                    <Card>
+                        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-0.5">
-                                <Label htmlFor="document_template_id">Template</Label>
-                                <p className="text-xs text-muted-foreground">
-                                    Select a layout for this salary slip.
+                                <CardTitle>Salary Slip Details</CardTitle>
+                                <p className="text-sm text-muted-foreground">
+                                    Configure the template and employer details for this payslip.
                                 </p>
                             </div>
-                            <Button variant="outline" size="sm" asChild>
-                                <Link
-                                    href="/template/salary-slip/create"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    <Plus />
-                                    New template
-                                </Link>
-                            </Button>
-                        </div>
-                        <select
-                            id="document_template_id"
-                            name="document_template_id"
-                            required
-                            defaultValue={
-                                mode === 'edit'
-                                    ? salarySlip?.document_template_id
-                                    : templates?.[0]?.id ?? ''
-                            }
-                            className="h-9 w-full rounded-md border border-sidebar-border/70 bg-background px-3 text-sm"
-                        >
-                            <option value="">Select template</option>
-                            {templates.map((t: any) => (
-                                <option key={t.id} value={t.id}>
-                                    {t.name}
-                                </option>
-                            ))}
-                        </select>
-                        <InputError message={(errors as any).document_template_id} />
-                    </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <Label htmlFor="document_template_id">
+                                            Template
+                                        </Label>
+                                        <Link
+                                            href="/template/salary-slip/create"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-xs font-medium text-primary hover:underline hover:underline-offset-4"
+                                        >
+                                            Create one
+                                        </Link>
+                                    </div>
+                                    <input
+                                        type="hidden"
+                                        name="document_template_id"
+                                        value={documentTemplateId}
+                                    />
+                                    <Select
+                                        value={documentTemplateId}
+                                        onValueChange={(v) => setDocumentTemplateId(v)}
+                                    >
+                                        <SelectTrigger
+                                            id="document_template_id"
+                                            className="h-9 py-1 text-base md:text-sm"
+                                        >
+                                            <SelectValue placeholder="Select template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {templates.map((t: any) => (
+                                                <SelectItem
+                                                    key={t.id}
+                                                    value={String(t.id)}
+                                                >
+                                                    {t.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={(errors as any).document_template_id} />
+                                </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="meta_heading">Heading</Label>
-                        <Input
-                            id="meta_heading"
-                            name="meta[heading]"
-                            type="text"
-                            defaultValue={
-                                mode === 'edit'
-                                    ? salarySlip?.meta?.heading ?? 'Payslip'
-                                    : 'Payslip'
-                            }
-                        />
-                    </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="meta_heading">Heading</Label>
+                                    <Input
+                                        id="meta_heading"
+                                        name="meta[heading]"
+                                        type="text"
+                                        defaultValue={
+                                            mode === 'edit'
+                                                ? salarySlip?.meta?.heading ?? 'Payslip'
+                                                : 'Payslip'
+                                        }
+                                    />
+                                </div>
+                            </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="meta_company_name">Company name</Label>
-                            <Input
-                                id="meta_company_name"
-                                name="meta[company_name]"
-                                type="text"
-                                defaultValue={
-                                    mode === 'edit'
-                                        ? salarySlip?.meta?.company_name ?? ''
-                                        : ''
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="meta_company_address">Company address</Label>
-                            <textarea
-                                id="meta_company_address"
-                                name="meta[company_address]"
-                                defaultValue={
-                                    mode === 'edit'
-                                        ? salarySlip?.meta?.company_address ?? ''
-                                        : ''
-                                }
-                                className="min-h-20 w-full rounded-md border border-sidebar-border/70 bg-background px-3 py-2 text-sm"
-                            />
-                        </div>
-                    </div>
+                            <div className="grid gap-3">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="meta_company_name">Company name</Label>
+                                    <Input
+                                        id="meta_company_name"
+                                        name="meta[company_name]"
+                                        type="text"
+                                        defaultValue={
+                                            mode === 'edit'
+                                                ? salarySlip?.meta?.company_name ?? ''
+                                                : ''
+                                        }
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="meta_company_address">
+                                        Company address
+                                    </Label>
+                                    <textarea
+                                        id="meta_company_address"
+                                        name="meta[company_address]"
+                                        defaultValue={
+                                            mode === 'edit'
+                                                ? salarySlip?.meta?.company_address ?? ''
+                                                : ''
+                                        }
+                                        rows={1}
+                                        className="border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm min-h-[4.5rem] resize-none"
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Payslip Details</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">Payslip Details</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 {payslipFields.map((row, i) => (
@@ -684,7 +820,7 @@ export default function SalarySlipForm({
                                                     );
                                                 }}
                                             >
-                                                <Minus />
+                                                <Minus className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </div>
@@ -693,6 +829,7 @@ export default function SalarySlipForm({
                                 <Button
                                     type="button"
                                     variant="secondary"
+                                    className="w-full justify-center"
                                     onClick={() => {
                                         const used = new Set(
                                             payslipFields.map((r) => r.key),
@@ -710,15 +847,15 @@ export default function SalarySlipForm({
                                         ]);
                                     }}
                                 >
-                                    <Plus />
+                                    <Plus className="h-4 w-4" />
                                     Add Item
                                 </Button>
                             </CardContent>
                         </Card>
 
                         <Card>
-                            <CardHeader>
-                                <CardTitle>Employee Details</CardTitle>
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-base">Employee Details</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
                                 {employeeFields.map((row, i) => (
@@ -776,7 +913,7 @@ export default function SalarySlipForm({
                                                     );
                                                 }}
                                             >
-                                                <Minus />
+                                                <Minus className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </div>
@@ -785,6 +922,7 @@ export default function SalarySlipForm({
                                 <Button
                                     type="button"
                                     variant="secondary"
+                                    className="w-full justify-center"
                                     onClick={() => {
                                         const used = new Set(
                                             employeeFields.map((r) => r.key),
@@ -802,7 +940,7 @@ export default function SalarySlipForm({
                                         ]);
                                     }}
                                 >
-                                    <Plus />
+                                    <Plus className="h-4 w-4" />
                                     Add Item
                                 </Button>
                             </CardContent>
@@ -810,11 +948,13 @@ export default function SalarySlipForm({
                     </div>
 
                     <div className="grid gap-2">
-                        <h2 className="text-base font-semibold">Salary Details</h2>
+                        <h2 className="text-base font-semibold tracking-tight">
+                            Salary Details
+                        </h2>
                         <div className="grid gap-4 md:grid-cols-2">
                             <Card>
-                                <CardHeader>
-                                    <CardTitle>Earnings</CardTitle>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">Earnings</CardTitle>
                                 </CardHeader>
                                 <CardContent
                                     className={
@@ -876,7 +1016,7 @@ export default function SalarySlipForm({
                                                             );
                                                         }}
                                                     >
-                                                        <Minus />
+                                                        <Minus className="h-4 w-4" />
                                                     </Button>
                                                 </div>
                                             </div>
@@ -886,6 +1026,7 @@ export default function SalarySlipForm({
                                     <Button
                                         type="button"
                                         variant="secondary"
+                                        className="w-full justify-center"
                                         onClick={() =>
                                             setEarnings([
                                                 ...earnings,
@@ -893,7 +1034,7 @@ export default function SalarySlipForm({
                                             ])
                                         }
                                     >
-                                        <Plus />
+                                        <Plus className="h-4 w-4" />
                                         Add Item
                                     </Button>
 
@@ -924,8 +1065,8 @@ export default function SalarySlipForm({
                             </Card>
 
                             <Card>
-                                <CardHeader>
-                                    <CardTitle>Deductions</CardTitle>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">Deductions</CardTitle>
                                 </CardHeader>
                                 <CardContent
                                     className={
@@ -942,14 +1083,21 @@ export default function SalarySlipForm({
                                             >
                                                 <div className="grid gap-1">
                                                     <Label>Tax</Label>
-                                                    <select
+                                                    <input
+                                                        type="hidden"
                                                         name={`meta[deductions][${i}][tax_id]`}
                                                         value={row.tax_id ?? ''}
-                                                        onChange={(e) => {
-                                                            const taxId = e.target.value;
+                                                    />
+                                                    <Select
+                                                        value={
+                                                            row.tax_id
+                                                                ? String(row.tax_id)
+                                                                : '__custom__'
+                                                        }
+                                                        onValueChange={(value) => {
                                                             const next = [...deductions];
 
-                                                            if (!taxId) {
+                                                            if (value === '__custom__') {
                                                                 next[i] = {
                                                                     ...next[i],
                                                                     tax_id: '',
@@ -959,28 +1107,37 @@ export default function SalarySlipForm({
                                                             }
 
                                                             const tax =
-                                                                taxesById.get(
-                                                                    String(taxId),
-                                                                ) ?? null;
+                                                                taxesById.get(String(value)) ??
+                                                                null;
                                                             next[i] = {
                                                                 ...next[i],
-                                                                tax_id: taxId,
-                                                                label:
-                                                                    tax?.name ?? next[i].label,
+                                                                tax_id: value,
+                                                                label: tax
+                                                                    ? taxLabelForDisplay(tax)
+                                                                    : next[i].label,
                                                                 amount: computeTaxAmount(tax),
                                                             };
 
                                                             setDeductions(next);
                                                         }}
-                                                        className="h-9 w-full rounded-md border border-sidebar-border/70 bg-background px-3 text-sm"
                                                     >
-                                                        <option value="">Custom</option>
-                                                        {(taxes ?? []).map((t) => (
-                                                            <option key={t.id} value={t.id}>
-                                                                {t.name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                        <SelectTrigger className="h-10">
+                                                            <SelectValue placeholder="Custom" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="__custom__">
+                                                                Custom
+                                                            </SelectItem>
+                                                            {(taxes ?? []).map((t) => (
+                                                                <SelectItem
+                                                                    key={t.id}
+                                                                    value={String(t.id)}
+                                                                >
+                                                                    {taxLabelForDisplay(t)}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                                 <div className="grid gap-1">
                                                     <Label>Title</Label>
@@ -1031,7 +1188,7 @@ export default function SalarySlipForm({
                                                             );
                                                         }}
                                                     >
-                                                        <Minus />
+                                                        <Minus className="h-4 w-4" />
                                                     </Button>
                                                 </div>
                                             </div>
@@ -1041,6 +1198,7 @@ export default function SalarySlipForm({
                                     <Button
                                         type="button"
                                         variant="secondary"
+                                        className="w-full justify-center"
                                         onClick={() =>
                                             setDeductions([
                                                 ...deductions,
@@ -1048,7 +1206,7 @@ export default function SalarySlipForm({
                                             ])
                                         }
                                     >
-                                        <Plus />
+                                        <Plus className="h-4 w-4" />
                                         Add Item
                                     </Button>
 
@@ -1081,61 +1239,65 @@ export default function SalarySlipForm({
 
                         <div className="grid gap-4 md:grid-cols-2">
                             <Card className="md:col-span-2">
-                                <CardContent className="py-3">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Net Pay</span>
-                                        <span className="font-medium">
+                                <CardContent className="space-y-3 py-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                        <div>
+                                            <div className="text-sm text-muted-foreground">
+                                                Net Pay
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                                Total earnings minus deductions
+                                            </div>
+                                        </div>
+                                        <div className="text-lg font-semibold tabular-nums">
                                             {netPayAmount.toFixed(2)}
-                                        </span>
+                                        </div>
                                     </div>
+
+                                    <div className="flex items-center justify-between gap-3 border-t pt-3">
+                                        <Label htmlFor="meta_net_pay_in_words">
+                                            Net pay in words
+                                        </Label>
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox
+                                                id="show_net_pay_in_words"
+                                                checked={showNetPayInWords}
+                                                onCheckedChange={(v) =>
+                                                    setShowNetPayInWords(v === true)
+                                                }
+                                            />
+                                            <Label
+                                                htmlFor="show_net_pay_in_words"
+                                                className="text-sm font-normal"
+                                            >
+                                                Show in PDF
+                                            </Label>
+                                        </div>
+                                    </div>
+
+                                    <input
+                                        type="hidden"
+                                        name="meta[show_net_pay_in_words]"
+                                        value={showNetPayInWords ? '1' : '0'}
+                                    />
+
+                                    <input
+                                        type="hidden"
+                                        name="meta[net_pay_in_words]"
+                                        value={netPayInWords}
+                                    />
+
+                                    {showNetPayInWords ? (
+                                        <textarea
+                                            id="meta_net_pay_in_words"
+                                            value={netPayInWords}
+                                            readOnly
+                                            rows={2}
+                                            className="border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground min-h-[2.25rem] w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                                        />
+                                    ) : null}
                                 </CardContent>
                             </Card>
-                        </div>
-                    </div>
-
-
-                    <div className="grid gap-4">
-                        <div className="grid gap-2">
-                            <div className="flex items-center justify-between gap-3">
-                                <Label htmlFor="meta_net_pay_in_words">Net pay in words</Label>
-                                <div className="flex items-center gap-2">
-                                    <Checkbox
-                                        id="show_net_pay_in_words"
-                                        checked={showNetPayInWords}
-                                        onCheckedChange={(v) =>
-                                            setShowNetPayInWords(v === true)
-                                        }
-                                    />
-                                    <Label
-                                        htmlFor="show_net_pay_in_words"
-                                        className="text-sm font-normal"
-                                    >
-                                        Show in PDF
-                                    </Label>
-                                </div>
-                            </div>
-
-                            <input
-                                type="hidden"
-                                name="meta[show_net_pay_in_words]"
-                                value={showNetPayInWords ? '1' : '0'}
-                            />
-
-                            <input
-                                type="hidden"
-                                name="meta[net_pay_in_words]"
-                                value={netPayInWords}
-                            />
-
-                            {showNetPayInWords ? (
-                                <textarea
-                                    id="meta_net_pay_in_words"
-                                    value={netPayInWords}
-                                    readOnly
-                                    rows={2}
-                                    className="border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground min-h-[2.25rem] w-full resize-none rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-                                />
-                            ) : null}
                         </div>
                     </div>
 
@@ -1146,12 +1308,14 @@ export default function SalarySlipForm({
                                     <CardTitle className="text-base">
                                         Employer signature
                                     </CardTitle>
-                                    <select
+                                    <ToggleGroup
+                                        type="single"
                                         value={employerSignatureMode}
-                                        onChange={(e) => {
-                                            const nextMode = e.target.value as
-                                                | 'draw'
-                                                | 'upload';
+                                        onValueChange={(value) => {
+                                            if (!value) {
+                                                return;
+                                            }
+                                            const nextMode = value as 'draw' | 'upload';
                                             setEmployerSignatureMode(nextMode);
                                             if (nextMode === 'draw') {
                                                 setEmployerSignatureFileKey((k) => k + 1);
@@ -1160,23 +1324,51 @@ export default function SalarySlipForm({
                                                 clearCanvas(employerCanvasRef.current);
                                             }
                                         }}
-                                        className="h-9 rounded-md border border-sidebar-border/70 bg-background px-3 text-sm"
+                                        variant="outline"
+                                        size="sm"
                                     >
-                                        <option value="draw">Signature pad</option>
-                                        <option value="upload">Upload</option>
-                                    </select>
+                                        <ToggleGroupItem value="draw">Pad</ToggleGroupItem>
+                                        <ToggleGroupItem value="upload">Upload</ToggleGroupItem>
+                                    </ToggleGroup>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <Label htmlFor="show_employer_signature_in_pdf">
+                                        Employer signature
+                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="show_employer_signature_in_pdf"
+                                            checked={showEmployerSignatureInPdf}
+                                            onCheckedChange={(v) =>
+                                                setShowEmployerSignatureInPdf(v === true)
+                                            }
+                                        />
+                                        <Label
+                                            htmlFor="show_employer_signature_in_pdf"
+                                            className="text-sm font-normal"
+                                        >
+                                            Show in PDF
+                                        </Label>
+                                    </div>
+                                </div>
+
+                                <input
+                                    type="hidden"
+                                    name="meta[show_employer_signature_in_pdf]"
+                                    value={showEmployerSignatureInPdf ? '1' : '0'}
+                                />
+
                                 <input
                                     type="hidden"
                                     name="meta[employer_signature]"
                                     value={employerSignature}
                                 />
 
-                                {employerSignature ? (
+                                {mode === 'edit' && employerSignature ? (
                                     <img
-                                        src={employerSignature}
+                                        src={signaturePreviewSrc(employerSignature)}
                                         alt="Employer signature"
                                         className="h-16 w-full rounded-md border border-sidebar-border/70 bg-white object-contain"
                                     />
@@ -1188,8 +1380,19 @@ export default function SalarySlipForm({
                                             key={employerSignatureFileKey}
                                             name="employer_signature_file"
                                             type="file"
-                                            accept="image/*"
+                                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                                            onChange={(e) => {
+                                                const file = e.currentTarget.files?.[0] ?? null;
+                                                const message = validateSignatureFile(file);
+                                                setEmployerSignatureFileError(message);
+                                                if (message) {
+                                                    e.currentTarget.value = '';
+                                                }
+                                            }}
                                         />
+                                        {employerSignatureFileError ? (
+                                            <InputError message={employerSignatureFileError} />
+                                        ) : null}
                                     </>
                                 ) : (
                                     <>
@@ -1291,12 +1494,14 @@ export default function SalarySlipForm({
                                     <CardTitle className="text-base">
                                         Employee signature
                                     </CardTitle>
-                                    <select
+                                    <ToggleGroup
+                                        type="single"
                                         value={employeeSignatureMode}
-                                        onChange={(e) => {
-                                            const nextMode = e.target.value as
-                                                | 'draw'
-                                                | 'upload';
+                                        onValueChange={(value) => {
+                                            if (!value) {
+                                                return;
+                                            }
+                                            const nextMode = value as 'draw' | 'upload';
                                             setEmployeeSignatureMode(nextMode);
                                             if (nextMode === 'draw') {
                                                 setEmployeeSignatureFileKey((k) => k + 1);
@@ -1305,23 +1510,51 @@ export default function SalarySlipForm({
                                                 clearCanvas(employeeCanvasRef.current);
                                             }
                                         }}
-                                        className="h-9 rounded-md border border-sidebar-border/70 bg-background px-3 text-sm"
+                                        variant="outline"
+                                        size="sm"
                                     >
-                                        <option value="draw">Signature pad</option>
-                                        <option value="upload">Upload</option>
-                                    </select>
+                                        <ToggleGroupItem value="draw">Pad</ToggleGroupItem>
+                                        <ToggleGroupItem value="upload">Upload</ToggleGroupItem>
+                                    </ToggleGroup>
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <Label htmlFor="show_employee_signature_in_pdf">
+                                        Employee signature
+                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <Checkbox
+                                            id="show_employee_signature_in_pdf"
+                                            checked={showEmployeeSignatureInPdf}
+                                            onCheckedChange={(v) =>
+                                                setShowEmployeeSignatureInPdf(v === true)
+                                            }
+                                        />
+                                        <Label
+                                            htmlFor="show_employee_signature_in_pdf"
+                                            className="text-sm font-normal"
+                                        >
+                                            Show in PDF
+                                        </Label>
+                                    </div>
+                                </div>
+
+                                <input
+                                    type="hidden"
+                                    name="meta[show_employee_signature_in_pdf]"
+                                    value={showEmployeeSignatureInPdf ? '1' : '0'}
+                                />
+
                                 <input
                                     type="hidden"
                                     name="meta[employee_signature]"
                                     value={employeeSignature}
                                 />
 
-                                {employeeSignature ? (
+                                {mode === 'edit' && employeeSignature ? (
                                     <img
-                                        src={employeeSignature}
+                                        src={signaturePreviewSrc(employeeSignature)}
                                         alt="Employee signature"
                                         className="h-16 w-full rounded-md border border-sidebar-border/70 bg-white object-contain"
                                     />
@@ -1333,8 +1566,19 @@ export default function SalarySlipForm({
                                             key={employeeSignatureFileKey}
                                             name="employee_signature_file"
                                             type="file"
-                                            accept="image/*"
+                                            accept="image/png,image/jpeg,image/jpg,image/webp"
+                                            onChange={(e) => {
+                                                const file = e.currentTarget.files?.[0] ?? null;
+                                                const message = validateSignatureFile(file);
+                                                setEmployeeSignatureFileError(message);
+                                                if (message) {
+                                                    e.currentTarget.value = '';
+                                                }
+                                            }}
                                         />
+                                        {employeeSignatureFileError ? (
+                                            <InputError message={employeeSignatureFileError} />
+                                        ) : null}
                                     </>
                                 ) : (
                                     <>

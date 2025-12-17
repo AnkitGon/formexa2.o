@@ -1,6 +1,15 @@
 import AppLayout from '@/layouts/app-layout';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Form, Head, Link, usePage } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
+import { useEffect, useMemo, useState } from 'react';
+import TaxForm from './tax-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -14,6 +23,50 @@ export default function TaxIndex() {
         SharedData & { taxes: any; typeOptions: Record<string, string> }
     >().props;
 
+    const errors = (usePage().props as any)?.errors ?? {};
+    const hasErrors = Object.keys(errors ?? {}).length > 0;
+
+    const taxesById = useMemo(() => {
+        const map = new Map<number, any>();
+        (taxes?.data ?? []).forEach((t: any) => map.set(Number(t.id), t));
+        return map;
+    }, [taxes]);
+
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+    const [activeTaxId, setActiveTaxId] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        if (!hasErrors) {
+            window.localStorage.removeItem('taxesModalState');
+            return;
+        }
+
+        const raw = window.localStorage.getItem('taxesModalState');
+        if (!raw) {
+            return;
+        }
+
+        try {
+            const parsed = JSON.parse(raw) as { mode?: 'create' | 'edit'; taxId?: number | null };
+            const nextMode = parsed?.mode === 'edit' ? 'edit' : 'create';
+            const nextTaxId = nextMode === 'edit' ? Number(parsed?.taxId ?? null) : null;
+
+            setDialogMode(nextMode);
+            setActiveTaxId(Number.isFinite(nextTaxId as any) ? nextTaxId : null);
+            setDialogOpen(true);
+        } catch {
+        }
+    }, [hasErrors]);
+
+    const activeTax = activeTaxId !== null ? taxesById.get(activeTaxId) : null;
+    const formAction = dialogMode === 'create' ? '/taxes' : `/taxes/${activeTaxId}`;
+    const dialogTitle = dialogMode === 'create' ? 'Create Tax' : 'Edit Tax';
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Taxes" />
@@ -21,12 +74,22 @@ export default function TaxIndex() {
             <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-lg font-semibold">Taxes</h1>
-                    <Link
-                        href="/taxes/create"
-                        className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+                    <Button
+                        onClick={() => {
+                            setDialogMode('create');
+                            setActiveTaxId(null);
+                            setDialogOpen(true);
+
+                            if (typeof window !== 'undefined') {
+                                window.localStorage.setItem(
+                                    'taxesModalState',
+                                    JSON.stringify({ mode: 'create', taxId: null }),
+                                );
+                            }
+                        }}
                     >
                         Create
-                    </Link>
+                    </Button>
                 </div>
 
                 <div className="overflow-x-auto rounded-xl border border-sidebar-border/70">
@@ -56,12 +119,28 @@ export default function TaxIndex() {
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="flex justify-end gap-2">
-                                            <Link
-                                                href={`/taxes/${t.id}/edit`}
-                                                className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setDialogMode('edit');
+                                                    setActiveTaxId(Number(t.id));
+                                                    setDialogOpen(true);
+
+                                                    if (typeof window !== 'undefined') {
+                                                        window.localStorage.setItem(
+                                                            'taxesModalState',
+                                                            JSON.stringify({
+                                                                mode: 'edit',
+                                                                taxId: Number(t.id),
+                                                            }),
+                                                        );
+                                                    }
+                                                }}
                                             >
                                                 Edit
-                                            </Link>
+                                            </Button>
                                             <Form
                                                 method="post"
                                                 action={`/taxes/${t.id}`}
@@ -92,6 +171,35 @@ export default function TaxIndex() {
                     </table>
                 </div>
             </div>
+
+            <Dialog
+                open={dialogOpen}
+                onOpenChange={(open) => {
+                    setDialogOpen(open);
+                    if (!open) {
+                        setDialogMode('create');
+                        setActiveTaxId(null);
+
+                        if (typeof window !== 'undefined') {
+                            window.localStorage.removeItem('taxesModalState');
+                        }
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{dialogTitle}</DialogTitle>
+                    </DialogHeader>
+
+                    <TaxForm
+                        key={`${dialogMode}-${activeTaxId ?? 'new'}`}
+                        mode={dialogMode}
+                        action={formAction}
+                        typeOptions={typeOptions}
+                        tax={dialogMode === 'edit' ? activeTax : undefined}
+                    />
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }

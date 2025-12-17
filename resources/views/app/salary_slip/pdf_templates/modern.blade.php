@@ -23,12 +23,6 @@
     }
     $payPeriod = trim((string) ($meta['pay_period'] ?? ($salarySlip->pay_period ?? '')));
 
-    $employerSignature = $meta['employer_signature'] ?? null;
-    $employeeSignature = $meta['employee_signature'] ?? null;
-
-    $hasEmployerSignature = is_string($employerSignature) && trim($employerSignature) !== '';
-    $hasEmployeeSignature = is_string($employeeSignature) && trim($employeeSignature) !== '';
-
     $payslipLabels = $meta['payslip_labels'] ?? [];
     $employeeLabels = $meta['employee_labels'] ?? [];
     $payslipExtra = $meta['payslip_extra'] ?? [];
@@ -131,6 +125,27 @@
     $netPayInWords = $meta['net_pay_in_words'] ?? null;
     $showNetPayInWords = $meta['show_net_pay_in_words'] ?? true;
     $showNetPayInWords = ! ($showNetPayInWords === false || $showNetPayInWords === 0 || $showNetPayInWords === '0');
+
+    $legacyShowSignaturesInPdf = $meta['show_signatures_in_pdf'] ?? true;
+    $legacyShowSignaturesInPdf = ! ($legacyShowSignaturesInPdf === false || $legacyShowSignaturesInPdf === 0 || $legacyShowSignaturesInPdf === '0');
+
+    $showEmployerSignatureInPdf = $meta['show_employer_signature_in_pdf'] ?? null;
+    if ($showEmployerSignatureInPdf === null || $showEmployerSignatureInPdf === '') {
+        $showEmployerSignatureInPdf = $legacyShowSignaturesInPdf;
+    }
+    $showEmployerSignatureInPdf = ! ($showEmployerSignatureInPdf === false || $showEmployerSignatureInPdf === 0 || $showEmployerSignatureInPdf === '0');
+
+    $showEmployeeSignatureInPdf = $meta['show_employee_signature_in_pdf'] ?? null;
+    if ($showEmployeeSignatureInPdf === null || $showEmployeeSignatureInPdf === '') {
+        $showEmployeeSignatureInPdf = $legacyShowSignaturesInPdf;
+    }
+    $showEmployeeSignatureInPdf = ! ($showEmployeeSignatureInPdf === false || $showEmployeeSignatureInPdf === 0 || $showEmployeeSignatureInPdf === '0');
+
+    $employerSignature = $meta['employer_signature'] ?? null;
+    $employeeSignature = $meta['employee_signature'] ?? null;
+
+    $hasEmployerSignature = $showEmployerSignatureInPdf && is_string($employerSignature) && trim($employerSignature) !== '';
+    $hasEmployeeSignature = $showEmployeeSignatureInPdf && is_string($employeeSignature) && trim($employeeSignature) !== '';
 @endphp
 <!DOCTYPE html>
 <html lang="en">

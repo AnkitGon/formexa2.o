@@ -29,16 +29,6 @@ class TaxController extends Controller
         ]);
     }
 
-    public function create()
-    {
-        return Inertia::render('taxes/create', [
-            'typeOptions' => [
-                'fixed' => 'Fixed',
-                'percentage' => 'Percentage',
-            ],
-        ]);
-    }
-
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -53,17 +43,6 @@ class TaxController extends Controller
         Tax::create($data);
 
         return redirect()->route('taxes.index');
-    }
-
-    public function edit(Tax $tax)
-    {
-        return Inertia::render('taxes/edit', [
-            'tax' => $tax,
-            'typeOptions' => [
-                'fixed' => 'Fixed',
-                'percentage' => 'Percentage',
-            ],
-        ]);
     }
 
     public function update(Request $request, Tax $tax)

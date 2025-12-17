@@ -1,8 +1,17 @@
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Form } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
 
 type Props = {
     mode: 'create' | 'edit';
@@ -18,6 +27,28 @@ type Props = {
 };
 
 export default function TaxForm({ mode, action, typeOptions, tax }: Props) {
+    const nameRef = useRef<HTMLInputElement | null>(null);
+    const [isActive, setIsActive] = useState<boolean>(
+        mode === 'create' ? true : Boolean(tax?.is_active),
+    );
+    const [taxType, setTaxType] = useState<string>(
+        mode === 'create' ? 'fixed' : String(tax?.type ?? 'fixed'),
+    );
+
+    useEffect(() => {
+        const el = nameRef.current;
+        if (!el) {
+            return;
+        }
+
+        try {
+            el.focus();
+            const len = el.value.length;
+            el.setSelectionRange(len, len);
+        } catch {
+        }
+    }, []);
+
     return (
         <Form id="taxForm" method="post" action={action} className="space-y-6">
             {({ processing, errors }) => (
@@ -34,31 +65,31 @@ export default function TaxForm({ mode, action, typeOptions, tax }: Props) {
                                 name="name"
                                 required
                                 defaultValue={tax?.name ?? ''}
+                                ref={nameRef}
                             />
                             <InputError message={(errors as any).name} />
                         </div>
 
                         <div className="grid gap-2">
                             <Label htmlFor="type">Type</Label>
-                            <select
-                                id="type"
-                                name="type"
-                                required
-                                defaultValue={
-                                    mode === 'create'
-                                        ? 'fixed'
-                                        : tax?.type ?? 'fixed'
-                                }
-                                className="h-9 w-full rounded-md border border-sidebar-border/70 bg-background px-3 text-sm"
+                            <input type="hidden" name="type" value={taxType} />
+                            <Select
+                                value={taxType}
+                                onValueChange={(v) => setTaxType(v)}
                             >
-                                {Object.entries(typeOptions ?? {}).map(
-                                    ([value, label]) => (
-                                        <option key={value} value={value}>
-                                            {label}
-                                        </option>
-                                    ),
-                                )}
-                            </select>
+                                <SelectTrigger id="type" className="h-9">
+                                    <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(typeOptions ?? {}).map(
+                                        ([value, label]) => (
+                                            <SelectItem key={value} value={value}>
+                                                {label}
+                                            </SelectItem>
+                                        ),
+                                    )}
+                                </SelectContent>
+                            </Select>
                             <InputError message={(errors as any).type} />
                         </div>
                     </div>
@@ -81,14 +112,14 @@ export default function TaxForm({ mode, action, typeOptions, tax }: Props) {
 
                     <div className="flex items-center gap-2">
                         <input
-                            id="is_active"
+                            type="hidden"
                             name="is_active"
-                            type="checkbox"
-                            value="1"
-                            defaultChecked={
-                                mode === 'create' ? true : Boolean(tax?.is_active)
-                            }
-                            className="h-4 w-4"
+                            value={isActive ? '1' : '0'}
+                        />
+                        <Checkbox
+                            id="is_active"
+                            checked={isActive}
+                            onCheckedChange={(v) => setIsActive(v === true)}
                         />
                         <Label htmlFor="is_active">Active</Label>
                     </div>
