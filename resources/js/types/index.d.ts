@@ -27,6 +27,16 @@ export interface SharedData {
     quote: { message: string; author: string };
     auth: Auth;
     sidebarOpen: boolean;
+    branding?: {
+        logo_dark_url?: string | null;
+        logo_light_url?: string | null;
+        favicon_url?: string | null;
+        favicon_v?: string | number | null;
+    };
+    settingsDefaults?: {
+        company_name?: string | null;
+        company_address?: string | null;
+    };
     [key: string]: unknown;
 }
 

@@ -1,5 +1,4 @@
 import AppLayout from '@/layouts/app-layout';
-import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -10,6 +9,7 @@ import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 import TaxForm from './tax-form';
+import { Button } from '@/components/ui/button';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -74,7 +74,8 @@ export default function TaxIndex() {
             <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-lg font-semibold">Taxes</h1>
-                    <Button
+                    <button
+                        type="button"
                         onClick={() => {
                             setDialogMode('create');
                             setActiveTaxId(null);
@@ -87,9 +88,10 @@ export default function TaxIndex() {
                                 );
                             }
                         }}
+                        className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
                     >
                         Create
-                    </Button>
+                    </button>
                 </div>
 
                 <div className="overflow-x-auto rounded-xl border border-sidebar-border/70">
@@ -119,10 +121,8 @@ export default function TaxIndex() {
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="flex justify-end gap-2">
-                                            <Button
+                                            <Button variant="outline" 
                                                 type="button"
-                                                variant="outline"
-                                                size="sm"
                                                 onClick={() => {
                                                     setDialogMode('edit');
                                                     setActiveTaxId(Number(t.id));
@@ -156,12 +156,12 @@ export default function TaxIndex() {
                                                     name="_method"
                                                     value="DELETE"
                                                 />
-                                                <button
+                                                <Button
                                                     type="submit"
-                                                    className="rounded-md border border-destructive/50 px-2 py-1 text-xs text-destructive"
+                                                    variant="destructive" 
                                                 >
                                                     Delete
-                                                </button>
+                                                </Button>
                                             </Form>
                                         </div>
                                     </td>

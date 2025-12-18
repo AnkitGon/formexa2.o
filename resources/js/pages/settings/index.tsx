@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Image as ImageIcon, Upload } from 'lucide-react';
+import { Image as ImageIcon, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type TabId = 'brand' | 'company' | 'salary_slip' | 'taxes' | 'security';
@@ -27,7 +27,17 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function SettingsIndex() {
+export default function SettingsIndex({
+    brand,
+    settings,
+}: {
+    brand?: {
+        logo_dark_url?: string | null;
+        logo_light_url?: string | null;
+        favicon_url?: string | null;
+    };
+    settings?: Record<string, string | null>;
+}) {
     const allowedExtensions = useMemo(
         () => new Set(['jpg', 'jpeg', 'png', 'svg', 'webp']),
         [],
@@ -92,8 +102,19 @@ export default function SettingsIndex() {
         logoDark?: string;
         logoLight?: string;
         favicon?: string;
+        companyName?: string;
+        companyAddress?: string;
         form?: string;
     }>({});
+
+    const [isSavingBrand, setIsSavingBrand] = useState(false);
+
+    const [companyName, setCompanyName] = useState<string>(
+        (settings?.company_name as string | null) ?? '',
+    );
+    const [companyAddress, setCompanyAddress] = useState<string>(
+        (settings?.company_address as string | null) ?? '',
+    );
 
     const logoDarkRef = useRef<HTMLInputElement | null>(null);
     const logoLightRef = useRef<HTMLInputElement | null>(null);
@@ -118,6 +139,7 @@ export default function SettingsIndex() {
         description,
         hint,
         file,
+        existingUrl,
         error,
         inputRef,
         onPick,
@@ -126,19 +148,23 @@ export default function SettingsIndex() {
         description: string;
         hint: string;
         file: File | null;
+        existingUrl?: string | null;
         error?: string;
         inputRef: React.RefObject<HTMLInputElement | null>;
         onPick: (file: File | null) => void;
     }) => {
         const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+        const [isDragging, setIsDragging] = useState(false);
 
         useEffect(() => {
             if (!file) {
-                setPreviewUrl(null);
+                setPreviewUrl(existingUrl ?? null);
                 return;
             }
 
-            const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
+            const isSvg =
+                file.type === 'image/svg+xml' ||
+                file.name.toLowerCase().endsWith('.svg');
             if (isSvg) {
                 const reader = new FileReader();
                 reader.onload = () => {
@@ -155,11 +181,13 @@ export default function SettingsIndex() {
             return () => {
                 URL.revokeObjectURL(url);
             };
-        }, [file]);
+        }, [file, existingUrl]);
+
+        const hasAsset = Boolean(file || existingUrl);
 
         return (
-            <Card className="gap-0">
-                <CardHeader className="pb-3">
+            <Card className="gap-0 h-full overflow-hidden border-sidebar-border/60 transition-shadow hover:shadow-sm">
+                <CardHeader className="border-b border-sidebar-border/60 bg-muted/10 pb-3">
                     <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                             <CardTitle className="text-sm">{title}</CardTitle>
@@ -174,27 +202,75 @@ export default function SettingsIndex() {
                     </div>
                 </CardHeader>
 
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-3 pt-4">
                     <button
                         type="button"
                         onClick={() => inputRef.current?.click()}
+                        onDragEnter={(e) => {
+                            e.preventDefault();
+                            setIsDragging(true);
+                        }}
+                        onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDragging(true);
+                        }}
+                        onDragLeave={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                        }}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            const next = e.dataTransfer.files?.[0] ?? null;
+                            onPick(next);
+                            if (inputRef.current) {
+                                inputRef.current.value = '';
+                            }
+                        }}
                         className={cn(
-                            'group flex w-full items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3 text-left transition-colors',
+                            'group relative flex min-h-[96px] w-full items-center justify-between gap-3 rounded-lg border border-dashed px-4 py-3 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2',
                             error
                                 ? 'border-destructive/60 bg-destructive/5'
-                                : 'border-sidebar-border/70 hover:bg-muted/40',
+                                : isDragging
+                                    ? 'border-primary/70 bg-primary/5'
+                                    : 'border-sidebar-border/70 bg-muted/10 hover:border-primary/30 hover:bg-muted/20',
                         )}
                     >
-                        <div className="min-w-0">
-                            <div className="text-sm font-medium">
-                                {file ? 'Change file' : 'Upload file'}
+                        <div className="flex min-w-0 items-center gap-3">
+                            <div
+                                className={cn(
+                                    'flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border bg-background shadow-sm',
+                                    error
+                                        ? 'border-destructive/40'
+                                        : 'border-sidebar-border/60 group-hover:border-primary/30',
+                                )}
+                            >
+                                {previewUrl ? (
+                                    <img
+                                        src={previewUrl}
+                                        alt={title}
+                                        className="h-full w-full object-contain p-1"
+                                    />
+                                ) : (
+                                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                )}
                             </div>
-                            <div className="mt-0.5 text-xs text-muted-foreground">
-                                {hint}
+
+                            <div className="min-w-0">
+                                <div className="text-sm font-medium">
+                                    {hasAsset ? 'Replace file' : 'Upload file'}
+                                </div>
+                                <div className="mt-0.5 text-xs leading-4 text-muted-foreground">
+                                    <div>Drag and drop, or click to browse.</div>
+                                    <div className="mt-1 truncate">{hint}</div>
+                                </div>
                             </div>
                         </div>
-                        <div className="text-muted-foreground transition-colors group-hover:text-foreground">
-                            <Upload className="h-4 w-4" />
+
+                        <div className="flex items-center gap-2">
+                            <div className="rounded-md border border-sidebar-border/60 bg-background p-2 text-muted-foreground shadow-sm transition-colors group-hover:text-foreground">
+                                <Upload className="h-4 w-4" />
+                            </div>
                         </div>
                     </button>
 
@@ -206,6 +282,7 @@ export default function SettingsIndex() {
                         onChange={(e) => {
                             const next = e.target.files?.[0] ?? null;
                             onPick(next);
+                            e.currentTarget.value = '';
                         }}
                     />
 
@@ -215,13 +292,15 @@ export default function SettingsIndex() {
                                 <div className="truncate text-sm">{file.name}</div>
                                 <div className="mt-0.5 text-xs text-muted-foreground">
                                     {(file.size / 1024).toFixed(0)} KB
+                                    {' · '}
+                                    {(file.type || 'image').replace('image/', '').toUpperCase()}
                                 </div>
                             </div>
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="text-muted-foreground hover:text-foreground"
+                                className="gap-1 text-muted-foreground hover:text-foreground"
                                 onClick={() => {
                                     if (inputRef.current) {
                                         inputRef.current.value = '';
@@ -229,6 +308,7 @@ export default function SettingsIndex() {
                                     onPick(null);
                                 }}
                             >
+                                <X className="h-4 w-4" />
                                 Remove
                             </Button>
                         </div>
@@ -236,11 +316,11 @@ export default function SettingsIndex() {
 
                     {previewUrl && (
                         <div className="overflow-hidden rounded-lg border border-sidebar-border/60 bg-muted/20">
-                            <div className="flex items-center justify-center p-4">
+                            <div className="flex items-center justify-center p-4" style={{backgroundColor: 'rgb(249, 249, 249)'}}>
                                 <img
                                     src={previewUrl}
                                     alt={title}
-                                    className="max-h-24 w-auto max-w-full object-contain"
+                                    className="max-h-28 w-auto max-w-full object-contain"
                                 />
                             </div>
                         </div>
@@ -324,15 +404,57 @@ export default function SettingsIndex() {
                                             if (lightErr) nextErrors.logoLight = lightErr;
                                             if (favErr) nextErrors.favicon = favErr;
 
+                                            if (Object.keys(nextErrors).length > 0) {
+                                                setBrandErrors(nextErrors);
+                                                return;
+                                            }
+
                                             setBrandErrors(nextErrors);
+
+                                            router.post(
+                                                '/settings/brand',
+                                                {
+                                                    logo_dark: brandFiles.logoDark,
+                                                    logo_light: brandFiles.logoLight,
+                                                    favicon: brandFiles.favicon,
+                                                    company_name: companyName,
+                                                    company_address: companyAddress,
+                                                },
+                                                {
+                                                    preserveScroll: true,
+                                                    forceFormData: true,
+                                                    onStart: () => setIsSavingBrand(true),
+                                                    onFinish: () => setIsSavingBrand(false),
+                                                    onSuccess: () => {
+                                                        setBrandFiles({
+                                                            logoDark: null,
+                                                            logoLight: null,
+                                                            favicon: null,
+                                                        });
+                                                        setBrandErrors({});
+                                                    },
+                                                    onError: (errors) => {
+                                                        setBrandErrors({
+                                                            logoDark: (errors as any).logo_dark,
+                                                            logoLight: (errors as any).logo_light,
+                                                            favicon: (errors as any).favicon,
+                                                            companyName: (errors as any).company_name,
+                                                            companyAddress: (errors as any).company_address,
+                                                            form: (errors as any).form,
+                                                        });
+                                                    },
+                                                },
+                                            );
                                         }}
                                     >
-                                        <div className="grid gap-4 lg:grid-cols-2">
+
+                                        <div className="grid gap-4 lg:grid-cols-3">
                                             <BrandUploadCard
                                                 title="Logo (Dark)"
                                                 description="Used on light backgrounds"
-                                                hint="SVG/PNG recommended. jpg, jpeg, png, svg, webp"
+                                                hint="Recommended: SVG or PNG · JPG/WEBP also ok"
                                                 file={brandFiles.logoDark}
+                                                existingUrl={brand?.logo_dark_url ?? null}
                                                 error={brandErrors.logoDark}
                                                 inputRef={logoDarkRef}
                                                 onPick={(file) => {
@@ -351,8 +473,9 @@ export default function SettingsIndex() {
                                             <BrandUploadCard
                                                 title="Logo (Light)"
                                                 description="Used on dark backgrounds"
-                                                hint="SVG/PNG recommended. jpg, jpeg, png, svg, webp"
+                                                hint="Recommended: SVG or PNG · JPG/WEBP also ok"
                                                 file={brandFiles.logoLight}
+                                                existingUrl={brand?.logo_light_url ?? null}
                                                 error={brandErrors.logoLight}
                                                 inputRef={logoLightRef}
                                                 onPick={(file) => {
@@ -371,8 +494,9 @@ export default function SettingsIndex() {
                                             <BrandUploadCard
                                                 title="Favicon"
                                                 description="Shown in browser tab"
-                                                hint="Square image recommended. jpg, jpeg, png, svg, webp"
+                                                hint="Square image recommended · SVG/PNG preferred"
                                                 file={brandFiles.favicon}
+                                                existingUrl={brand?.favicon_url ?? null}
                                                 error={brandErrors.favicon}
                                                 inputRef={faviconRef}
                                                 onPick={(file) => {
@@ -387,25 +511,49 @@ export default function SettingsIndex() {
                                                     }));
                                                 }}
                                             />
+                                        </div>
+                                        <div className="grid gap-4 lg:grid-cols-3">
+                                            <div className="space-y-2 lg:col-span-1">
+                                                <Label htmlFor="company_name">
+                                                    Company Name
+                                                </Label>
+                                                <Input
+                                                    id="company_name"
+                                                    value={companyName}
+                                                    onChange={(e) => setCompanyName(e.target.value)}
+                                                    placeholder="Company name"
+                                                    autoComplete="organization"
+                                                />
+                                                <InputError message={brandErrors.companyName} />
+                                            </div>
 
-                                            <Card className="gap-0">
-                                                <CardHeader className="pb-3">
-                                                    <CardTitle className="text-sm">
-                                                        Guidelines
-                                                    </CardTitle>
-                                                </CardHeader>
-                                                <CardContent className="space-y-2 text-sm text-muted-foreground">
-                                                    <div>Preferred: SVG for logos</div>
-                                                    <div>Favicon: square, 256×256+</div>
-                                                    <div>Transparent PNG works well</div>
-                                                </CardContent>
-                                            </Card>
+                                            <div className="space-y-2 lg:col-span-2">
+                                                <Label htmlFor="company_address">
+                                                    Company Address
+                                                </Label>
+                                                <textarea
+                                                    id="company_address"
+                                                    value={companyAddress}
+                                                    onChange={(e) => setCompanyAddress(e.target.value)}
+                                                    placeholder="Address"
+                                                    rows={2}
+                                                    className={cn(
+                                                        'border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] md:text-sm',
+                                                        'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+                                                        'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
+                                                        'min-h-[4.5rem] resize-none',
+                                                    )}
+                                                />
+                                                <InputError message={brandErrors.companyAddress} />
+                                            </div>
                                         </div>
 
                                         <Separator />
 
                                         <div className="flex justify-end">
-                                            <Button type="submit">Save</Button>
+                                            <Button type="submit" disabled={isSavingBrand}>
+                                                Save
+                                            </Button>
                                         </div>
                                     </form>
                                 )}

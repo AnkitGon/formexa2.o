@@ -2,14 +2,17 @@
 
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Settings\TwoFactorAuthenticationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::middleware('auth')->group(function () {
-    Route::get('settings', function () {
-        return Inertia::render('settings/index');
-    })->name('settings.index');
+    Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
+
+    Route::post('settings', [SettingsController::class, 'update'])->name('settings.update');
+
+    Route::post('settings/brand', [SettingsController::class, 'updateBrand'])->name('settings.brand.update');
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');

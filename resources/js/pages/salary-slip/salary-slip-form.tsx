@@ -12,7 +12,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Form, Link } from '@inertiajs/react';
+import { type SharedData } from '@/types';
+import { Form, Link, usePage } from '@inertiajs/react';
 import { Minus, Plus } from 'lucide-react';
 import React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -73,6 +74,7 @@ export default function SalarySlipForm({
     salarySlip,
     showExtraSections = false,
 }: Props) {
+    const { settingsDefaults } = usePage<SharedData>().props;
     const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
     const signaturePreviewSrc = useCallback((value: string) => {
@@ -706,7 +708,7 @@ export default function SalarySlipForm({
                                         defaultValue={
                                             mode === 'edit'
                                                 ? salarySlip?.meta?.company_name ?? ''
-                                                : ''
+                                                : settingsDefaults?.company_name ?? ''
                                         }
                                     />
                                 </div>
@@ -720,7 +722,7 @@ export default function SalarySlipForm({
                                         defaultValue={
                                             mode === 'edit'
                                                 ? salarySlip?.meta?.company_address ?? ''
-                                                : ''
+                                                : settingsDefaults?.company_address ?? ''
                                         }
                                         rows={1}
                                         className="border-input placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm min-h-[4.5rem] resize-none"

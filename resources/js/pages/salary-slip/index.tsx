@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { Button } from '@/components/ui/button';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, usePage, Form } from '@inertiajs/react';
 
@@ -54,24 +55,15 @@ export default function SalarySlipIndex() {
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="flex justify-end gap-2">
-                                            <Link
-                                                href={`/salary-slip/${slip.id}`}
-                                                className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
-                                            >
-                                                View
-                                            </Link>
-                                            <Link
-                                                href={`/salary-slip/${slip.id}/edit`}
-                                                className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
-                                            >
-                                                Edit
-                                            </Link>
-                                            <a
-                                                href={`/salary-slip/${slip.id}/download`}
-                                                className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
-                                            >
-                                                Download
-                                            </a>
+                                            <Button variant="outline" asChild>
+                                                <Link href={`/salary-slip/${slip.id}`}>View</Link>
+                                            </Button>
+                                            <Button variant="outline" asChild>
+                                                <Link href={`/salary-slip/${slip.id}/edit`}>Edit</Link>
+                                            </Button>
+                                            <Button variant="outline" asChild>
+                                                <a href={`/salary-slip/${slip.id}/download`}>Download</a>
+                                            </Button>
                                             <Form
                                                 method="post"
                                                 action={`/salary-slip/${slip.id}`}
@@ -83,12 +75,9 @@ export default function SalarySlipIndex() {
                                                 }}
                                             >
                                                 <input type="hidden" name="_method" value="DELETE" />
-                                                <button
-                                                    type="submit"
-                                                    className="rounded-md border border-destructive/50 px-2 py-1 text-xs text-destructive"
-                                                >
+                                                <Button type="submit" variant="destructive">
                                                     Delete
-                                                </button>
+                                                </Button>
                                             </Form>
                                         </div>
                                     </td>

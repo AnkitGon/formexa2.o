@@ -1,4 +1,5 @@
 import AppLayout from '@/layouts/app-layout';
+import { Button } from '@/components/ui/button';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 
@@ -50,12 +51,9 @@ export default function SalarySlipTemplateIndex() {
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="flex justify-end gap-2">
-                                            <Link
-                                                href={`/template/salary-slip/${t.id}/edit`}
-                                                className="rounded-md border border-sidebar-border/70 px-2 py-1 text-xs"
-                                            >
-                                                Edit
-                                            </Link>
+                                            <Button variant="outline" asChild>
+                                                <Link href={`/template/salary-slip/${t.id}/edit`}>Edit</Link>
+                                            </Button>
                                             <Form
                                                 method="post"
                                                 action={`/template/salary-slip/${t.id}`}
@@ -67,12 +65,9 @@ export default function SalarySlipTemplateIndex() {
                                                 }}
                                             >
                                                 <input type="hidden" name="_method" value="DELETE" />
-                                                <button
-                                                    type="submit"
-                                                    className="rounded-md border border-destructive/50 px-2 py-1 text-xs text-destructive"
-                                                >
+                                                <Button type="submit" variant="destructive">
                                                     Delete
-                                                </button>
+                                                </Button>
                                             </Form>
                                         </div>
                                     </td>
