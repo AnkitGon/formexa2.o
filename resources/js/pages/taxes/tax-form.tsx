@@ -24,9 +24,10 @@ type Props = {
         value?: number | string;
         is_active?: boolean;
     };
+    onSuccess?: () => void;
 };
 
-export default function TaxForm({ mode, action, typeOptions, tax }: Props) {
+export default function TaxForm({ mode, action, typeOptions, tax, onSuccess }: Props) {
     const nameRef = useRef<HTMLInputElement | null>(null);
     const [isActive, setIsActive] = useState<boolean>(
         mode === 'create' ? true : Boolean(tax?.is_active),
@@ -50,7 +51,15 @@ export default function TaxForm({ mode, action, typeOptions, tax }: Props) {
     }, []);
 
     return (
-        <Form id="taxForm" method="post" action={action} className="space-y-6">
+        <Form
+            id="taxForm"
+            method="post"
+            action={action}
+            className="space-y-6"
+            onSuccess={() => {
+                onSuccess?.();
+            }}
+        >
             {({ processing, errors }) => (
                 <>
                     {mode === 'edit' && (

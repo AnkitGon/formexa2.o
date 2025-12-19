@@ -32,6 +32,21 @@ export default function SalarySlipTemplateForm({
     designOptions,
     template,
 }: Props) {
+    const getCookieValue = (name: string): string | null => {
+        const parts = document.cookie.split(';').map((c) => c.trim());
+        const found = parts.find((c) => c.startsWith(`${name}=`));
+        if (!found) {
+            return null;
+        }
+
+        const value = found.substring(name.length + 1);
+        try {
+            return decodeURIComponent(value);
+        } catch {
+            return value;
+        }
+    };
+
     const normalizeColor = (value: unknown, fallback: string) => {
         if (typeof value !== 'string') {
             return fallback;
@@ -72,9 +87,13 @@ export default function SalarySlipTemplateForm({
                     ) as HTMLMetaElement | null
                 )?.content;
 
+                const xsrfToken = getCookieValue('XSRF-TOKEN');
+                const csrfToken = token || xsrfToken;
+
                 const fd = new FormData(form);
-                if (token && !fd.has('_token')) {
-                    fd.append('_token', token);
+                fd.delete('_method');
+                if (csrfToken && !fd.has('_token')) {
+                    fd.append('_token', csrfToken);
                 }
 
                 abortControllerRef.current?.abort();
@@ -87,8 +106,10 @@ export default function SalarySlipTemplateForm({
                         method: 'POST',
                         body: fd,
                         signal: controller.signal,
+                        credentials: 'include',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
+                            ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
                         },
                     });
 

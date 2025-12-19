@@ -10,6 +10,7 @@ class DocumentTemplate extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'name',
         'code',
         'document_type',

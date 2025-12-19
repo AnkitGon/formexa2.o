@@ -8,10 +8,21 @@ use App\Models\Tax;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class SalarySlipController extends Controller
 {
+    private function requireSalarySlipOwner(SalarySlip $salarySlip): void
+    {
+        $userId = Auth::id();
+
+        if (! $userId || (int) $salarySlip->user_id !== (int) $userId) {
+            abort(404);
+        }
+    }
+
     private function normalizeStoredSignaturePath($value): ?string
     {
         if (! is_string($value)) {
@@ -187,7 +198,10 @@ class SalarySlipController extends Controller
             return $meta;
         }
 
-        $taxesById = Tax::whereIn('id', $taxIds)->get()->keyBy('id');
+        $taxesById = Tax::where('user_id', Auth::id())
+            ->whereIn('id', $taxIds)
+            ->get()
+            ->keyBy('id');
 
         foreach ($deductions as $i => $row) {
             if (! is_array($row)) {
@@ -452,7 +466,10 @@ class SalarySlipController extends Controller
             return $meta;
         }
 
-        $taxesById = Tax::whereIn('id', $taxIds)->get()->keyBy('id');
+        $taxesById = Tax::where('user_id', Auth::id())
+            ->whereIn('id', $taxIds)
+            ->get()
+            ->keyBy('id');
         $totalEarnings = $this->totalEarningsFromMeta($meta);
 
         foreach ($deductions as $i => $row) {
@@ -523,7 +540,8 @@ class SalarySlipController extends Controller
         }
 
         $salarySlips = SalarySlip::with('template')
-            ->latest()
+            ->where('user_id', $request->user()->id)
+            ->orderByDesc('id')
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -535,11 +553,12 @@ class SalarySlipController extends Controller
     public function create()
     {
         $templates = DocumentTemplate::where('document_type', 'salary_slip')
+            ->where('user_id', Auth::id())
             ->active()
             ->orderBy('name')
             ->get();
 
-        $taxes = Tax::active()->orderBy('name')->get();
+        $taxes = Tax::where('user_id', Auth::id())->active()->orderBy('name')->get();
 
         return Inertia::render('salary-slip/create', [
             'templates' => $templates,
@@ -549,8 +568,16 @@ class SalarySlipController extends Controller
 
     public function store(Request $request)
     {
+        $userId = $request->user()->id;
+
         $data = $request->validate([
-            'document_template_id' => 'required|exists:document_templates,id',
+            'document_template_id' => [
+                'required',
+                Rule::exists('document_templates', 'id')
+                    ->where(function ($query) use ($userId) {
+                        $query->where('user_id', $userId)->where('document_type', 'salary_slip');
+                    }),
+            ],
             'basic_salary' => 'required|numeric',
             'allowance_amount' => 'required|numeric',
             'deduction_amount' => 'required|numeric',
@@ -587,7 +614,12 @@ class SalarySlipController extends Controller
             'meta.deductions' => 'nullable|array',
             'meta.deductions.*.label' => 'nullable|string|max:255',
             'meta.deductions.*.amount' => 'nullable|numeric',
-            'meta.deductions.*.tax_id' => 'nullable|exists:taxes,id',
+            'meta.deductions.*.tax_id' => [
+                'nullable',
+                Rule::exists('taxes', 'id')->where(function ($query) use ($userId) {
+                    $query->where('user_id', $userId);
+                }),
+            ],
 
             'employer_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
             'employee_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
@@ -610,6 +642,8 @@ class SalarySlipController extends Controller
 
         $data['net_salary'] = $basic + $allowance - $deduction;
 
+        $data['user_id'] = $userId;
+
         SalarySlip::create($data);
 
         return redirect()->route('salary-slip.index');
@@ -617,12 +651,14 @@ class SalarySlipController extends Controller
 
     public function preview(Request $request)
     {
+        $userId = $request->user()->id;
         $templateId = $request->input('document_template_id');
         if (! $templateId) {
             return response('Please select a template.', 422);
         }
 
         $template = DocumentTemplate::where('document_type', 'salary_slip')
+            ->where('user_id', $userId)
             ->whereKey($templateId)
             ->first();
 
@@ -667,12 +703,15 @@ class SalarySlipController extends Controller
 
     public function edit(SalarySlip $salarySlip)
     {
+        $this->requireSalarySlipOwner($salarySlip);
+
         $templates = DocumentTemplate::where('document_type', 'salary_slip')
+            ->where('user_id', Auth::id())
             ->active()
             ->orderBy('name')
             ->get();
 
-        $taxes = Tax::active()->orderBy('name')->get();
+        $taxes = Tax::where('user_id', Auth::id())->active()->orderBy('name')->get();
 
         return Inertia::render('salary-slip/edit', [
             'salarySlip' => $salarySlip->loadMissing('template'),
@@ -683,6 +722,8 @@ class SalarySlipController extends Controller
 
     public function show(SalarySlip $salarySlip)
     {
+        $this->requireSalarySlipOwner($salarySlip);
+
         $salarySlip->loadMissing('template');
 
         $meta = $salarySlip->meta ?? [];
@@ -698,8 +739,17 @@ class SalarySlipController extends Controller
 
     public function update(Request $request, SalarySlip $salarySlip)
     {
+        $this->requireSalarySlipOwner($salarySlip);
+        $userId = $request->user()->id;
+
         $data = $request->validate([
-            'document_template_id' => 'required|exists:document_templates,id',
+            'document_template_id' => [
+                'required',
+                Rule::exists('document_templates', 'id')
+                    ->where(function ($query) use ($userId) {
+                        $query->where('user_id', $userId)->where('document_type', 'salary_slip');
+                    }),
+            ],
             'basic_salary' => 'required|numeric',
             'allowance_amount' => 'required|numeric',
             'deduction_amount' => 'required|numeric',
@@ -736,7 +786,12 @@ class SalarySlipController extends Controller
             'meta.deductions' => 'nullable|array',
             'meta.deductions.*.label' => 'nullable|string|max:255',
             'meta.deductions.*.amount' => 'nullable|numeric',
-            'meta.deductions.*.tax_id' => 'nullable|exists:taxes,id',
+            'meta.deductions.*.tax_id' => [
+                'nullable',
+                Rule::exists('taxes', 'id')->where(function ($query) use ($userId) {
+                    $query->where('user_id', $userId);
+                }),
+            ],
 
             'employer_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
             'employee_signature_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:4096',
@@ -772,6 +827,8 @@ class SalarySlipController extends Controller
 
     public function destroy(SalarySlip $salarySlip)
     {
+        $this->requireSalarySlipOwner($salarySlip);
+
         $salarySlip->delete();
 
         return redirect()->route('salary-slip.index');
@@ -779,6 +836,8 @@ class SalarySlipController extends Controller
 
     public function showPdf(SalarySlip $salarySlip)
     {
+        $this->requireSalarySlipOwner($salarySlip);
+
         if (! class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
             abort(500, 'PDF library is not installed. Run composer require barryvdh/laravel-dompdf');
         }
@@ -806,6 +865,8 @@ class SalarySlipController extends Controller
 
     public function downloadPdf(SalarySlip $salarySlip)
     {
+        $this->requireSalarySlipOwner($salarySlip);
+
         if (! class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
             abort(500, 'PDF library is not installed. Run composer require barryvdh/laravel-dompdf');
         }

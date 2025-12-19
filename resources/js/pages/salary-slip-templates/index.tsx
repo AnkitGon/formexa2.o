@@ -1,5 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import Pagination from '@/components/pagination';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 
@@ -76,6 +77,8 @@ export default function SalarySlipTemplateIndex() {
                         </tbody>
                     </table>
                 </div>
+
+                <Pagination links={templates?.links} />
             </div>
         </AppLayout>
     );

@@ -2,6 +2,7 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, usePage, Form } from '@inertiajs/react';
+import Pagination from '@/components/pagination';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -86,6 +87,8 @@ export default function SalarySlipIndex() {
                         </tbody>
                     </table>
                 </div>
+
+                <Pagination links={salarySlips?.links} />
             </div>
         </AppLayout>
     );

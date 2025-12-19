@@ -10,8 +10,9 @@ return new class extends Migration
     {
         Schema::create('document_templates', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name');
-            $table->string('code')->unique();
+            $table->string('code');
             $table->string('document_type');
             $table->text('description')->nullable();
             $table->string('preview_image_path')->nullable();

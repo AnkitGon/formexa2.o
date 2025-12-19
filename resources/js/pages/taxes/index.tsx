@@ -5,6 +5,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import Pagination from '@/components/pagination';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Form, Head, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
@@ -42,6 +43,9 @@ export default function TaxIndex() {
         }
 
         if (!hasErrors) {
+            setDialogOpen(false);
+            setDialogMode('create');
+            setActiveTaxId(null);
             window.localStorage.removeItem('taxesModalState');
             return;
         }
@@ -170,6 +174,8 @@ export default function TaxIndex() {
                         </tbody>
                     </table>
                 </div>
+
+                <Pagination links={taxes?.links} />
             </div>
 
             <Dialog
@@ -197,6 +203,14 @@ export default function TaxIndex() {
                         action={formAction}
                         typeOptions={typeOptions}
                         tax={dialogMode === 'edit' ? activeTax : undefined}
+                        onSuccess={() => {
+                            setDialogOpen(false);
+                            setDialogMode('create');
+                            setActiveTaxId(null);
+                            if (typeof window !== 'undefined') {
+                                window.localStorage.removeItem('taxesModalState');
+                            }
+                        }}
                     />
                 </DialogContent>
             </Dialog>

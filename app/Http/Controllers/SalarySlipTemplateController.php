@@ -5,10 +5,21 @@ namespace App\Http\Controllers;
 use App\Models\DocumentTemplate;
 use App\Models\SalarySlip;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class SalarySlipTemplateController extends Controller
 {
+    private function requireTemplateOwner(DocumentTemplate $template): void
+    {
+        $userId = Auth::id();
+
+        if (! $userId || (int) $template->user_id !== (int) $userId) {
+            abort(404);
+        }
+    }
+
     public function index(Request $request)
     {
         $allowedPerPage = [5, 10, 15, 20, 25];
@@ -18,7 +29,8 @@ class SalarySlipTemplateController extends Controller
         }
 
         $templates = DocumentTemplate::where('document_type', 'salary_slip')
-            ->orderBy('name')
+            ->where('user_id', $request->user()->id)
+            ->latest()
             ->paginate($perPage)
             ->appends($request->query());
 
@@ -43,9 +55,20 @@ class SalarySlipTemplateController extends Controller
 
     public function store(Request $request)
     {
+        $userId = $request->user()->id;
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:255|in:classic,modern|unique:document_templates,code',
+            'code' => [
+                'required',
+                'string',
+                'max:255',
+                'in:classic,modern',
+                Rule::unique('document_templates', 'code')
+                    ->where(function ($query) use ($userId) {
+                        $query->where('user_id', $userId)->where('document_type', 'salary_slip');
+                    }),
+            ],
             'description' => 'nullable|string',
             'primary_color' => 'nullable|string|max:20',
             'secondary_color' => 'nullable|string|max:20',
@@ -57,6 +80,7 @@ class SalarySlipTemplateController extends Controller
         ]);
 
         $data['is_active'] = $request->boolean('is_active', true);
+        $data['user_id'] = $userId;
         $data['document_type'] = 'salary_slip';
 
         DocumentTemplate::create($data);
@@ -66,6 +90,8 @@ class SalarySlipTemplateController extends Controller
 
     public function edit(DocumentTemplate $template)
     {
+        $this->requireTemplateOwner($template);
+
         return Inertia::render('salary-slip-templates/edit', [
             'template' => $template,
             'designOptions' => [
@@ -77,9 +103,22 @@ class SalarySlipTemplateController extends Controller
 
     public function update(Request $request, DocumentTemplate $template)
     {
+        $this->requireTemplateOwner($template);
+        $userId = $request->user()->id;
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:255|in:classic,modern|unique:document_templates,code,' . $template->id,
+            'code' => [
+                'required',
+                'string',
+                'max:255',
+                'in:classic,modern',
+                Rule::unique('document_templates', 'code')
+                    ->ignore($template->id)
+                    ->where(function ($query) use ($userId) {
+                        $query->where('user_id', $userId)->where('document_type', 'salary_slip');
+                    }),
+            ],
             'description' => 'nullable|string',
             'primary_color' => 'nullable|string|max:20',
             'secondary_color' => 'nullable|string|max:20',
@@ -185,6 +224,8 @@ class SalarySlipTemplateController extends Controller
 
     public function destroy(DocumentTemplate $template)
     {
+        $this->requireTemplateOwner($template);
+
         $template->delete();
 
         return redirect()->route('template.salary-slip.index');

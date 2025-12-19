@@ -10,6 +10,7 @@ return new class extends Migration
     {
         Schema::create('salary_slips', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('document_template_id')->constrained('document_templates')->cascadeOnDelete();
             $table->decimal('basic_salary', 12, 2)->default(0);
             $table->decimal('allowance_amount', 12, 2)->default(0);
