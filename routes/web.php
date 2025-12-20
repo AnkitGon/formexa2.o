@@ -56,6 +56,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{tax}', 'update')->whereNumber('tax')->name('update');
             Route::delete('/{tax}', 'destroy')->whereNumber('tax')->name('destroy');
         });
+
+    Route::resource('clients', \App\Http\Controllers\ClientController::class);
+    Route::get('invoices/{invoice}/print', [\App\Http\Controllers\InvoiceController::class, 'print'])->name('invoices.print');
+    Route::post('invoices/{invoice}/duplicate', [\App\Http\Controllers\InvoiceController::class, 'duplicate'])->name('invoices.duplicate');
+    Route::post('invoices/{invoice}/send', [\App\Http\Controllers\InvoiceController::class, 'send'])->name('invoices.send');
+    Route::post('invoices/{invoice}/payments', [\App\Http\Controllers\PaymentController::class, 'store'])->name('invoices.payments.store');
+    Route::delete('invoices/{invoice}/payments/{payment}', [\App\Http\Controllers\PaymentController::class, 'destroy'])->name('invoices.payments.destroy');
+    Route::resource('invoices', \App\Http\Controllers\InvoiceController::class);
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';

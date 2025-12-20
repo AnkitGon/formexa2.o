@@ -41,6 +41,61 @@
         $employeeExtra = [];
     }
 
+    $settingsDefaults = $settingsDefaults ?? [];
+    $defaultCurrency = $settingsDefaults['default_currency'] ?? 'USD';
+    $currencySymbolPosition = $settingsDefaults['currency_symbol_position'] ?? 'prefix';
+
+    $dateFormatSetting = $settingsDefaults['date_format'] ?? 'YYYY-MM-DD';
+    $timeFormatSetting = $settingsDefaults['time_format'] ?? 'hh:mm A';
+
+    $phpDateFormat = match ($dateFormatSetting) {
+        'DD/MM/YYYY' => 'd/m/Y',
+        'MM/DD/YYYY' => 'm/d/Y',
+        default => 'Y-m-d',
+    };
+
+    $phpTimeFormat = match ($timeFormatSetting) {
+        'HH:mm' => 'H:i',
+        'HH:mm:ss' => 'H:i:s',
+        default => 'h:i A',
+    };
+
+    $formatValue = function ($value, bool $includeTime = false) use ($phpDateFormat, $phpTimeFormat) {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            $dt = \Carbon\Carbon::parse($value);
+            return $includeTime
+                ? $dt->format($phpDateFormat . ' ' . $phpTimeFormat)
+                : $dt->format($phpDateFormat);
+        } catch (\Throwable $e) {
+            return $value;
+        }
+    };
+
+    $earnings = $meta['earnings'] ?? [];
+    $deductions = $meta['deductions'] ?? [];
+
+    if (! is_array($earnings)) {
+        $earnings = [];
+    }
+    if (! is_array($deductions)) {
+        $deductions = [];
+    }
+
+    $formatCurrency = function ($value) use ($defaultCurrency, $currencySymbolPosition) {
+        $amount = (float) ($value ?? 0);
+        $base = number_format($amount, 2);
+        // Render currency code to avoid unsupported glyphs
+        if ($currencySymbolPosition === 'suffix') {
+            return $base . ' ' . $defaultCurrency;
+        }
+
+        return $defaultCurrency . ' ' . $base;
+    };
+
     $payslipRows = [];
     foreach ($payslipLabels as $key => $label) {
         $label = trim((string) $label);
@@ -56,6 +111,7 @@
         $payslipRows[] = [
             'label' => $label,
             'value' => $value,
+            'display' => $formatValue($value, true),
         ];
     }
 
@@ -68,6 +124,7 @@
         $payslipRows[] = [
             'label' => $label,
             'value' => $item['value'] ?? '',
+            'display' => $formatValue($item['value'] ?? '', true),
         ];
     }
 
@@ -86,6 +143,7 @@
         $employeeRows[] = [
             'label' => $label,
             'value' => $value,
+            'display' => $formatValue($value, true),
         ];
     }
 
@@ -98,20 +156,11 @@
         $employeeRows[] = [
             'label' => $label,
             'value' => $item['value'] ?? '',
+            'display' => $formatValue($item['value'] ?? '', true),
         ];
     }
 
     $infoRows = max(count($payslipRows), count($employeeRows));
-
-    $earnings = $meta['earnings'] ?? [];
-    $deductions = $meta['deductions'] ?? [];
-
-    if (! is_array($earnings)) {
-        $earnings = [];
-    }
-    if (! is_array($deductions)) {
-        $deductions = [];
-    }
 
     $maxRows = max(count($earnings), count($deductions));
 
@@ -356,13 +405,13 @@
                         <td>{{ $earning['label'] ?? '' }}</td>
                         <td class="text-right">
                             @if (isset($earning['amount']))
-                                {{ number_format((float) $earning['amount'], 2) }}
+                                {{ $formatCurrency($earning['amount'] ?? 0) }}
                             @endif
                         </td>
                         <td>{{ $deduction['label'] ?? '' }}</td>
                         <td class="text-right">
                             @if (isset($deduction['amount']))
-                                {{ number_format((float) $deduction['amount'], 2) }}
+                                {{ $formatCurrency($deduction['amount'] ?? 0) }}
                             @endif
                         </td>
                     </tr>
@@ -370,13 +419,13 @@
             @else
                 <tr>
                     <td>Basic Salary</td>
-                    <td class="text-right">{{ number_format($basic, 2) }}</td>
+                    <td class="text-right">{{ $formatCurrency($basic) }}</td>
                     <td>Deductions</td>
-                    <td class="text-right">{{ number_format($deductionAmount, 2) }}</td>
+                    <td class="text-right">{{ $formatCurrency($deductionAmount) }}</td>
                 </tr>
                 <tr>
                     <td>Allowances</td>
-                    <td class="text-right">{{ number_format($allowance, 2) }}</td>
+                    <td class="text-right">{{ $formatCurrency($allowance) }}</td>
                     <td></td>
                     <td></td>
                 </tr>
@@ -384,14 +433,14 @@
 
             <tr class="summary-row">
                 <th>Total Earnings</th>
-                <th class="text-right">{{ number_format($totalEarnings, 2) }}</th>
+                <th class="text-right">{{ $formatCurrency($totalEarnings) }}</th>
                 <th>Total Deductions</th>
-                <th class="text-right">{{ number_format($totalDeductions, 2) }}</th>
+                <th class="text-right">{{ $formatCurrency($totalDeductions) }}</th>
             </tr>
             <tr class="summary-row">
                 <th colspan="2"></th>
                 <th>Net Salary</th>
-                <th class="text-right">{{ number_format($netSalary, 2) }}</th>
+                <th class="text-right">{{ $formatCurrency($netSalary) }}</th>
             </tr>
         </table>
 

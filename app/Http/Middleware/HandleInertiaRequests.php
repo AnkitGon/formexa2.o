@@ -83,7 +83,14 @@ class HandleInertiaRequests extends Middleware
             )
             : [];
 
-        $salarySlipMetaKeys = ['company_name', 'company_address'];
+        $salarySlipMetaKeys = [
+            'company_name',
+            'company_address',
+            'date_format',
+            'time_format',
+            'default_currency',
+            'currency_symbol_position',
+        ];
 
         $userSalarySlipDefaults = $user
             ? Cache::remember(

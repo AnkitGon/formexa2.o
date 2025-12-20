@@ -23,6 +23,11 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
+        title: 'Invoices',
+        href: '/invoices',
+        icon: Folder,
+    },
+    {
         title: 'Salary Slips',
         href: '/salary-slip',
         icon: FileText,
