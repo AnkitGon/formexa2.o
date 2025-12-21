@@ -40,6 +40,16 @@ export default function SalarySlipTemplateIndex() {
                             </tr>
                         </thead>
                         <tbody>
+                            {(templates?.data ?? []).length === 0 && (
+                                <tr className="border-b border-sidebar-border/50 last:border-b-0">
+                                    <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div>No data found.</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
+
                             {(templates?.data ?? []).map((t: any) => (
                                 <tr
                                     key={t.id}

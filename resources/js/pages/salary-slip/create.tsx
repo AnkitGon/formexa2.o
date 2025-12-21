@@ -1,6 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
+import { Button } from '@/components/ui/button';
 import { type BreadcrumbItem, type SharedData } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import SalarySlipForm from './salary-slip-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -23,23 +24,29 @@ export default function SalarySlipCreate() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Salary Slip" />
 
-            <div className="flex flex-col gap-4 p-4">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-lg font-semibold">Create Salary Slip</h1>
-                    <Link
-                        href="/salary-slip"
-                        className="rounded-md border border-sidebar-border/70 px-3 py-2 text-sm"
-                    >
-                        Back
-                    </Link>
-                </div>
+            <div className="p-4">
+                <div className="w-full max-w-6xl mx-auto overflow-y-auto bg-background p-4 lg:p-6 custom-scrollbar">
+                    <div className="space-y-6 pb-20">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight">Create Salary Slip</h1>
+                                <p className="text-muted-foreground">Configure salary slip details</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="sm" type="button" onClick={() => window.history.back()}>
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
 
-                <SalarySlipForm
-                    mode="create"
-                    action="/salary-slip"
-                    templates={templates}
-                    taxes={taxes}
-                />
+                        <SalarySlipForm
+                            mode="create"
+                            action="/salary-slip"
+                            templates={templates}
+                            taxes={taxes}
+                        />
+                    </div>
+                </div>
             </div>
         </AppLayout>
     );

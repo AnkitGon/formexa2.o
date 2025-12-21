@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
     Select,
     SelectContent,
@@ -616,7 +617,7 @@ export default function SalarySlipForm({
             id="salarySlipForm"
             method="post"
             action={action}
-            className="mx-auto max-w-6xl space-y-6 px-4 pb-10"
+            className="space-y-8"
             encType="multipart/form-data"
         >
             {({ processing, errors }) => (
@@ -646,7 +647,7 @@ export default function SalarySlipForm({
                                             Template
                                         </Label>
                                         <Link
-                                            href="/template/salary-slip/create"
+                                            href="/template/create"
                                             target="_blank"
                                             rel="noreferrer"
                                             className="text-xs font-medium text-primary hover:underline hover:underline-offset-4"
@@ -1677,8 +1678,10 @@ export default function SalarySlipForm({
                         </Card>
                     </div>
 
-                    <div className="flex justify-end">
-                        <Button disabled={processing}>Save</Button>
+                    <div className="flex justify-end gap-2">
+                        <Button type="submit" disabled={processing}>
+                            Save
+                        </Button>
                     </div>
 
                 </>

@@ -13,6 +13,11 @@ import {
 import { Form } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 
+const getCsrfToken = () =>
+    (
+        document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
+    )?.content ?? '';
+
 type TemplateFormValues = {
     id?: number;
     name?: string;
@@ -42,6 +47,7 @@ export default function SalarySlipTemplateForm({
     template,
 }: Props) {
     const DEFAULT_FONT = 'default';
+    const csrfToken = getCsrfToken();
 
     const triggerFormChange = () => {
         const form = document.getElementById('templateForm');
@@ -161,16 +167,14 @@ export default function SalarySlipTemplateForm({
             }
 
             previewTimeoutRef.current = window.setTimeout(async () => {
-                const token = (
-                    document.querySelector(
-                        'meta[name="csrf-token"]',
-                    ) as HTMLMetaElement | null
-                )?.content;
+                const token = getCsrfToken();
 
                 const fd = new FormData(form);
                 if (token && !fd.has('_token')) {
                     fd.append('_token', token);
                 }
+                // Ensure the latest font selection is sent even if state/render lag behind the change event
+                fd.set('font_family', fontFamily === DEFAULT_FONT ? '' : fontFamily);
 
                 abortControllerRef.current?.abort();
                 const controller = new AbortController();
@@ -186,9 +190,12 @@ export default function SalarySlipTemplateForm({
                         signal: controller.signal,
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
+                            ...(token ? { 'X-CSRF-TOKEN': token } : {}),
                         },
+                        // Use include to support scenarios where the frontend runs on a different
+                        // dev host (e.g., Vite) so session cookies are sent with the request.
+                        credentials: 'include',
                     });
-
                     const html = await response.text();
                     if (!response.ok) {
                         setPreviewError(html);
@@ -219,12 +226,13 @@ export default function SalarySlipTemplateForm({
                 window.clearTimeout(previewTimeoutRef.current);
             }
         };
-    }, []);
+    }, [documentType, selectedDesignCode, designOptionsForModule, fontFamily]);
 
     return (
         <Form id="templateForm" method="post" action={action} className="space-y-6">
             {({ processing, errors }) => (
                 <>
+                    <input type="hidden" name="_token" value={csrfToken} />
                     {mode === 'edit' && (
                         <input type="hidden" name="_method" value="PUT" />
                     )}
@@ -338,24 +346,13 @@ export default function SalarySlipTemplateForm({
                                             <SelectItem value={DEFAULT_FONT}>
                                                 Default (Arial)
                                             </SelectItem>
-                                            <SelectItem value="Arial, sans-serif">Arial</SelectItem>
                                             <SelectItem value="Times New Roman, serif">
                                                 Times New Roman
                                             </SelectItem>
                                             <SelectItem value="Calibri, sans-serif">Calibri</SelectItem>
                                             <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
                                             <SelectItem value="Roboto, sans-serif">Roboto</SelectItem>
-                                            <SelectItem value="Open Sans, sans-serif">
-                                                Open Sans
-                                            </SelectItem>
-                                            <SelectItem value="Lato, sans-serif">Lato</SelectItem>
-                                            <SelectItem value="Montserrat, sans-serif">
-                                                Montserrat
-                                            </SelectItem>
-                                            <SelectItem value="Poppins, sans-serif">
-                                                Poppins
-                                            </SelectItem>
-                                            <SelectItem value="Nunito, sans-serif">Nunito</SelectItem>
+                                          
                                         </SelectContent>
                                     </Select>
                                     <InputError message={(errors as any).font_family} />

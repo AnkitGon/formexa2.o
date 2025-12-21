@@ -25,6 +25,7 @@ export interface NavItem {
 export interface SharedData {
     name: string;
     quote: { message: string; author: string };
+    csrf_token?: string;
     auth: Auth;
     sidebarOpen: boolean;
     branding?: {

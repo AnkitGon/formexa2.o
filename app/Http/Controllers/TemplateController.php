@@ -72,6 +72,10 @@ class TemplateController extends Controller
             'is_active' => 'sometimes|boolean',
         ]);
 
+        // Normalize font family to avoid nulls and preserve user selection
+        $fontFamily = trim((string) $request->input('font_family', ''));
+        $data['font_family'] = $fontFamily === '' ? null : $fontFamily;
+
         $data['is_active'] = $request->boolean('is_active', true);
 
         DocumentTemplate::create($data);
@@ -106,6 +110,10 @@ class TemplateController extends Controller
             'is_active' => 'sometimes|boolean',
         ]);
 
+        // Normalize font family to avoid nulls and preserve user selection
+        $fontFamily = trim((string) $request->input('font_family', ''));
+        $data['font_family'] = $fontFamily === '' ? null : $fontFamily;
+
         $data['is_active'] = $request->boolean('is_active', true);
 
         $template->update($data);
@@ -130,6 +138,8 @@ class TemplateController extends Controller
             'line_height' => 'nullable|integer|min:10|max:40',
         ]);
 
+        $fontFamily = trim((string) $request->input('font_family', ''));
+
         $viewPrefix = $documentType === 'invoice'
             ? 'app.invoice.pdf_templates.'
             : 'app.salary_slip.pdf_templates.';
@@ -147,7 +157,7 @@ class TemplateController extends Controller
             'primary_color' => $data['primary_color'] ?? null,
             'secondary_color' => $data['secondary_color'] ?? null,
             'accent_color' => $data['accent_color'] ?? null,
-            'font_family' => $data['font_family'] ?? null,
+            'font_family' => $fontFamily === '' ? null : $fontFamily,
             'font_size' => $data['font_size'] ?? null,
             'line_height' => $data['line_height'] ?? null,
         ]);

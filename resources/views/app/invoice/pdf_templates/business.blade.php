@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -9,7 +10,10 @@
         $primary = $template->primary_color ?? '#1f2937';
         $accent = $template->accent_color ?? '#111827';
         $bodyColor = $template->secondary_color ?? '#111827';
-        $fontFamily = $template->font_family ?: "'Helvetica', 'Arial', sans-serif";
+        $fontFamily = trim((string) ($template->font_family ?? ''));
+        if ($fontFamily === '') {
+            $fontFamily = 'Arial, sans-serif';
+        }
         $fontSize = $template->font_size ?: 12;
         $lineHeight = $template->line_height ?: 19;
     @endphp
@@ -21,15 +25,20 @@
             --border: #e5e7eb;
             --muted: #6b7280;
         }
-        * { box-sizing: border-box; }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: {{ $fontFamily }};
+            font-family: {{ $fontFamily }} !important;
             margin: 0;
             padding: 32px;
             color: var(--body);
             font-size: {{ $fontSize }}px;
             line-height: {{ $lineHeight }}px;
         }
+
         .invoice {
             max-width: 900px;
             margin: 0 auto;
@@ -37,15 +46,58 @@
             border-radius: 8px;
             padding: 28px;
         }
-        .flex-between { display: flex; justify-content: space-between; gap: 16px; }
-        .text-right { text-align: right; }
-        .muted { color: var(--muted); font-size: max(10px, {{ $fontSize }}px - 1); }
-        h1 { margin: 0 0 4px; font-size: 22px; color: var(--accent); }
-        h3 { margin: 12px 0 4px; font-size: 14px; color: var(--accent); }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th { background: var(--primary); color: #fff; padding: 8px; font-size: max(10px, {{ $fontSize }}px - 1); text-align: left; }
-        td { border-bottom: 1px solid var(--border); padding: 8px; vertical-align: top; }
-        .total-row td { font-weight: 600; }
+
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: max(10px, {{ $fontSize }}px - 1);
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 22px;
+            color: var(--accent);
+        }
+
+        h3 {
+            margin: 12px 0 4px;
+            font-size: 14px;
+            color: var(--accent);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th {
+            background: var(--primary);
+            color: #fff;
+            padding: 8px;
+            font-size: max(10px, {{ $fontSize }}px - 1);
+            text-align: left;
+        }
+
+        td {
+            border-bottom: 1px solid var(--border);
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        .total-row td {
+            font-weight: 600;
+        }
+
         .pill {
             display: inline-block;
             padding: 2px 8px;
@@ -54,13 +106,32 @@
             background: #e5e7eb;
             color: var(--accent);
         }
-        .badge-primary { background: var(--primary); color: #fff; }
-        .totals { width: 280px; margin-left: auto; margin-top: 16px; }
-        .totals td { border: none; }
-        .totals .label { color: #4b5563; }
-        .notes { margin-top: 18px; }
+
+        .badge-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .totals {
+            width: 280px;
+            margin-left: auto;
+            margin-top: 16px;
+        }
+
+        .totals td {
+            border: none;
+        }
+
+        .totals .label {
+            color: #4b5563;
+        }
+
+        .notes {
+            margin-top: 18px;
+        }
     </style>
 </head>
+
 <body>
     <div class="invoice">
         <div class="flex-between" style="align-items:flex-start;">
@@ -167,4 +238,5 @@
         </div>
     </div>
 </body>
+
 </html>

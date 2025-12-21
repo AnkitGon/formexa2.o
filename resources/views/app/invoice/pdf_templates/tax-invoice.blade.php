@@ -9,7 +9,10 @@
         $primary = $template->primary_color ?? '#111827';
         $accent = $template->accent_color ?? '#111827';
         $bodyColor = $template->secondary_color ?? '#111827';
-        $fontFamily = $template->font_family ?: "'DejaVu Sans', Arial, sans-serif";
+        $fontFamily = trim((string) ($template->font_family ?? ''));
+        if ($fontFamily === '') {
+            $fontFamily = 'Arial, sans-serif';
+        }
         $fontSize = $template->font_size ?: 12;
         $lineHeight = $template->line_height ?: 19;
     @endphp
@@ -23,7 +26,7 @@
         }
         * { box-sizing: border-box; }
         body {
-            font-family: {{ $fontFamily }};
+            font-family: {{ $fontFamily }} !important;
             margin: 0;
             padding: 32px;
             color: var(--body);

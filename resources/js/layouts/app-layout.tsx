@@ -9,7 +9,7 @@ interface AppLayoutProps {
 }
 
 export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
-    const { branding } = usePage<
+    const { branding, csrf_token } = usePage<
         SharedData & {
             branding?: { favicon_url?: string | null; favicon_v?: string | number | null };
         }
@@ -42,6 +42,14 @@ export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
     return (
         <AppLayoutTemplate breadcrumbs={breadcrumbs} {...props}>
             <Head>
+                {csrf_token ? (
+                    <meta
+                        name="csrf-token"
+                        content={String(csrf_token)}
+                        head-key="csrf-token"
+                    />
+                ) : null}
+
                 {faviconHref ? (
                     <link
                         rel="icon"

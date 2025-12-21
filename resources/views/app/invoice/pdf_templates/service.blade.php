@@ -9,7 +9,10 @@
         $primary = $template->primary_color ?? '#0f172a';
         $accent = $template->accent_color ?? '#075985';
         $bodyColor = $template->secondary_color ?? '#0f172a';
-        $fontFamily = $template->font_family ?: "'Helvetica', 'Arial', sans-serif";
+        $fontFamily = trim((string) ($template->font_family ?? ''));
+        if ($fontFamily === '') {
+            $fontFamily = 'Arial, sans-serif';
+        }
         $fontSize = $template->font_size ?: 12;
         $lineHeight = $template->line_height ?: 19;
     @endphp
@@ -23,7 +26,7 @@
         }
         * { box-sizing: border-box; }
         body {
-            font-family: {{ $fontFamily }};
+            font-family: {{ $fontFamily }} !important;
             margin: 0;
             padding: 32px;
             color: var(--body);

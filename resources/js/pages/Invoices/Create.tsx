@@ -5,10 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import InvoicePaper, { InvoiceData, BusinessData } from '@/Components/Invoices/InvoicePaper';
 import AppLayout from '@/layouts/app-layout';
 import { Head, useForm } from '@inertiajs/react';
-import { Plus, Trash2, Save, Printer, ArrowLeft, Maximize2 } from 'lucide-react';
+import { Plus, Trash2, Save } from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 // Textarea fallback
@@ -194,33 +193,6 @@ export default function Create({ invoice, clients, nextNumber, today, business_s
         }
     };
 
-    // Prepare preview data
-    const previewData: InvoiceData = {
-        ...data,
-        subtotal: totals.subtotal,
-        tax_total: totals.tax,
-        total: totals.total,
-        client: selectedClient ? {
-            name: selectedClient.name,
-            company_name: selectedClient.company_name,
-            address: selectedClient.address,
-            email: selectedClient.email,
-            tax_id: selectedClient.tax_id
-        } : undefined,
-        items: data.items,
-        // Ensure types match
-        show_logo: Boolean(data.show_logo),
-        currency_position: data.currency_position as 'before' | 'after',
-        decimal_precision: Number(data.decimal_precision),
-    };
-
-    const businessData: BusinessData = {
-        name: defaultSettings.company_name || 'My Company',
-        email: 'contact@example.com', // Should come from settings
-        address: defaultSettings.company_address || '',
-        logo_url: defaultSettings.logo_url // Should be passed
-    };
-
     return (
         <AppLayout breadcrumbs={[
             { title: 'Invoices', href: '/invoices' },
@@ -228,12 +200,9 @@ export default function Create({ invoice, clients, nextNumber, today, business_s
         ]}>
             <Head title={isEditing ? 'Edit Invoice' : 'New Invoice'} />
 
-            {/* Split View Layout */}
-            <div className="flex flex-col lg:flex-row h-[calc(100vh-4rem)] overflow-hidden">
-
-                {/* Left: Editor (Scrollable) */}
-                <div className="w-full lg:w-1/2 h-full overflow-y-auto border-r bg-background p-4 lg:p-6 custom-scrollbar">
-                    <div className="max-w-2xl mx-auto space-y-6 pb-20">
+            <div className="p-4">
+                <div className="w-full max-w-4xl mx-auto overflow-y-auto bg-background p-4 lg:p-6 custom-scrollbar">
+                    <div className="space-y-6 pb-20">
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h1 className="text-2xl font-bold tracking-tight">{isEditing ? 'Edit Invoice' : 'New Invoice'}</h1>
@@ -242,9 +211,6 @@ export default function Create({ invoice, clients, nextNumber, today, business_s
                             <div className="flex gap-2">
                                 <Button variant="outline" size="sm" onClick={() => window.history.back()}>
                                     Cancel
-                                </Button>
-                                <Button size="sm" onClick={submit} disabled={processing}>
-                                    <Save className="mr-2 h-4 w-4" /> Save
                                 </Button>
                             </div>
                         </div>
@@ -525,28 +491,19 @@ export default function Create({ invoice, clients, nextNumber, today, business_s
                                         </div>
                                     </TabsContent>
                                 </Tabs>
+
+                                <div className="flex justify-end gap-2">
+                                    
+                                    <Button type="submit" disabled={processing}>
+                                        Save
+                                    </Button>
+                                </div>
                             </div>
 
                         </form>
                     </div>
                 </div>
 
-                {/* Right: Live Preview (Hidden on small screens) */}
-                <div className="hidden lg:block w-1/2 h-full bg-slate-100 p-8 overflow-y-auto">
-                    <div className="max-w-[210mm] mx-auto transform origin-top scale-[0.8] xl:scale-[0.9] 2xl:scale-100 transition-transform">
-                        <InvoicePaper data={previewData} business={businessData} />
-                    </div>
-                </div>
-
-                {/* Mobile Preview Button */}
-                <div className="lg:hidden fixed bottom-4 right-4 z-50">
-                    <Button className="rounded-full shadow-lg h-12 w-12 p-0" onClick={() => {
-                        // Implement mobile preview modal if needed
-                        // For now just submit
-                    }}>
-                        <Save className="h-5 w-5" />
-                    </Button>
-                </div>
             </div >
         </AppLayout >
     );

@@ -22,10 +22,17 @@ class InvoiceController extends Controller
 
     public function index()
     {
+        $allowedPerPage = [5, 10, 15, 20, 25];
+        $perPage = (int) request()->query('per_page', 10);
+        if (! in_array($perPage, $allowedPerPage, true)) {
+            $perPage = 10;
+        }
+
         $invoices = Auth::user()->invoices()
             ->with('client')
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate($perPage)
+            ->appends(request()->query());
 
         return Inertia::render('Invoices/Index', [
             'invoices' => $invoices
