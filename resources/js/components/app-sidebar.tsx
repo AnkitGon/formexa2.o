@@ -33,8 +33,8 @@ const mainNavItems: NavItem[] = [
         icon: FileText,
     },
     {
-        title: 'Salary Slip Templates',
-        href: '/template/salary-slip',
+        title: 'Templates',
+        href: '/template',
         icon: LayoutTemplate,
     },
     {

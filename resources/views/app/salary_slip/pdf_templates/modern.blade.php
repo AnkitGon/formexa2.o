@@ -2,7 +2,10 @@
     $primaryColor = $template->primary_color ?? '#1f2937';
     $accentColor = $template->accent_color ?? '#111827';
     $textColor = $template->secondary_color ?? '#333333';
-    $fontFamily = $template->font_family ?? 'DejaVu Sans, sans-serif';
+    $fontFamily = trim((string) ($template->font_family ?? ''));
+    if ($fontFamily === '') {
+        $fontFamily = 'Arial, sans-serif';
+    }
     $fontSize = $template->font_size ?? 11;
     $lineHeight = $template->line_height ?? (int) round($fontSize * 1.4);
 

@@ -18,17 +18,10 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->timestamps();
         });
-
-        Schema::table('invoices', function (Blueprint $table) {
-            $table->decimal('amount_paid', 15, 4)->default(0)->after('total');
-        });
     }
 
     public function down(): void
     {
         Schema::dropIfExists('payments');
-        Schema::table('invoices', function (Blueprint $table) {
-            $table->dropColumn('amount_paid');
-        });
     }
 };

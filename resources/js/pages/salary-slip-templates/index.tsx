@@ -5,8 +5,8 @@ import { Form, Head, Link, usePage } from '@inertiajs/react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Salary Slip Templates',
-        href: '/template/salary-slip',
+        title: 'Templates',
+        href: '/template',
     },
 ];
 
@@ -15,13 +15,13 @@ export default function SalarySlipTemplateIndex() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Salary Slip Templates" />
+            <Head title="Templates" />
 
             <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-lg font-semibold">Salary Slip Templates</h1>
+                    <h1 className="text-lg font-semibold">Templates</h1>
                     <Link
-                        href="/template/salary-slip/create"
+                        href="/template/create"
                         className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
                     >
                         Create
@@ -33,7 +33,8 @@ export default function SalarySlipTemplateIndex() {
                         <thead className="border-b border-sidebar-border/70 bg-muted/30 text-left">
                             <tr>
                                 <th className="px-3 py-2">Name</th>
-                                <th className="px-3 py-2">Code</th>
+                                <th className="px-3 py-2">Module</th>
+                                <th className="px-3 py-2">Design</th>
                                 <th className="px-3 py-2">Active</th>
                                 <th className="px-3 py-2 text-right">Actions</th>
                             </tr>
@@ -45,18 +46,33 @@ export default function SalarySlipTemplateIndex() {
                                     className="border-b border-sidebar-border/50 last:border-b-0"
                                 >
                                     <td className="px-3 py-2">{t.name}</td>
-                                    <td className="px-3 py-2">{t.code}</td>
+                                    <td className="px-3 py-2">
+                                        {t.document_type
+                                            ? t.document_type
+                                                  .replace(/_/g, ' ')
+                                                  .replace(/\b\w/g, (c: string) =>
+                                                      c.toUpperCase(),
+                                                  )
+                                            : '—'}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        {t.design_label ??
+                                            t.design ??
+                                            (t.code
+                                                ? t.code.replace(/_/g, ' ')
+                                                : '—')}
+                                    </td>
                                     <td className="px-3 py-2">
                                         {t.is_active ? 'Yes' : 'No'}
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="flex justify-end gap-2">
                                             <Button variant="outline" asChild>
-                                                <Link href={`/template/salary-slip/${t.id}/edit`}>Edit</Link>
+                                                <Link href={`/template/${t.id}/edit`}>Edit</Link>
                                             </Button>
                                             <Form
                                                 method="post"
-                                                action={`/template/salary-slip/${t.id}`}
+                                                action={`/template/${t.id}`}
                                                 className="inline"
                                                 onSubmit={(e) => {
                                                     if (!window.confirm('Are you sure you want to delete this item?')) {

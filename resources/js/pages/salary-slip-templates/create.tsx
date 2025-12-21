@@ -5,12 +5,12 @@ import SalarySlipTemplateForm from './template-form';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Salary Slip Templates',
-        href: '/template/salary-slip',
+        title: 'Templates',
+        href: '/template',
     },
     {
         title: 'Create',
-        href: '/template/salary-slip/create',
+        href: '/template/create',
     },
 ];
 
@@ -19,15 +19,13 @@ export default function SalarySlipTemplateCreate() {
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Create Salary Slip Template" />
+            <Head title="Create Template" />
 
             <div className="flex flex-col gap-4 p-4">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-lg font-semibold">
-                        Create Salary Slip Template
-                    </h1>
+                    <h1 className="text-lg font-semibold">Create Template</h1>
                     <Link
-                        href="/template/salary-slip"
+                        href="/template"
                         className="rounded-md border border-sidebar-border/70 px-3 py-2 text-sm"
                     >
                         Back
@@ -36,7 +34,7 @@ export default function SalarySlipTemplateCreate() {
 
                 <SalarySlipTemplateForm
                     mode="create"
-                    action="/template/salary-slip"
+                    action="/template"
                     designOptions={designOptions}
                 />
             </div>

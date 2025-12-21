@@ -5,7 +5,6 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SalarySlipController;
-use App\Http\Controllers\SalarySlipTemplateController;
 use App\Http\Controllers\TaxController;
 
 Route::get('/', function () {
@@ -34,9 +33,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/{salarySlip}/download', 'downloadPdf')->name('download');
         });
 
-    Route::prefix('template/salary-slip')
-        ->name('template.salary-slip.')
-        ->controller(SalarySlipTemplateController::class)
+    Route::prefix('template')
+        ->name('template.')
+        ->controller(\App\Http\Controllers\TemplateController::class)
         ->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create', 'create')->name('create');
