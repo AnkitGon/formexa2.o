@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 import { Image as ImageIcon, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-type TabId = 'brand' | 'system' | 'invoice';
+type TabId = 'brand' | 'system';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -81,11 +81,6 @@ export default function SettingsIndex({
                     title: 'System',
                     description: 'Defaults and localization preferences',
                 },
-                {
-                    id: 'invoice' as const,
-                    title: 'Invoice',
-                    description: 'Invoice numbering, layout, and defaults',
-                },
             ] satisfies Array<{ id: TabId; title: string; description: string }>,
         [],
     );
@@ -134,14 +129,6 @@ export default function SettingsIndex({
     );
     const [systemErrors, setSystemErrors] = useState<Record<string, string | undefined>>({});
     const [isSavingSystem, setIsSavingSystem] = useState(false);
-
-    // Invoice Settings State
-    const [invoicePrefix, setInvoicePrefix] = useState((settings?.invoice_prefix as string | null) ?? 'INV-');
-    const [invoiceTemplate, setInvoiceTemplate] = useState((settings?.invoice_template as string | null) ?? 'classic');
-    const [primaryColor, setPrimaryColor] = useState((settings?.primary_color as string | null) ?? '#000000');
-    const [showLogo, setShowLogo] = useState((settings?.show_logo as string | null) === '1');
-    const [decimalPrecision, setDecimalPrecision] = useState((settings?.decimal_precision as string | null) ?? '2');
-    const [isSavingInvoice, setIsSavingInvoice] = useState(false);
 
     const logoDarkRef = useRef<HTMLInputElement | null>(null);
     const logoLightRef = useRef<HTMLInputElement | null>(null);
@@ -713,108 +700,6 @@ export default function SettingsIndex({
                                     </form>
                                 )}
 
-                                {activeTab === 'invoice' && (
-                                    <form
-                                        className="space-y-6"
-                                        onSubmit={(e) => {
-                                            e.preventDefault();
-                                            router.post(
-                                                '/settings',
-                                                {
-                                                    invoice_prefix: invoicePrefix,
-                                                    invoice_template: invoiceTemplate,
-                                                    primary_color: primaryColor,
-                                                    show_logo: showLogo ? '1' : '0',
-                                                    decimal_precision: decimalPrecision,
-                                                },
-                                                {
-                                                    preserveScroll: true,
-                                                    onStart: () => setIsSavingInvoice(true),
-                                                    onFinish: () => setIsSavingInvoice(false),
-                                                }
-                                            );
-                                        }}
-                                    >
-                                        <div className="grid gap-4 md:grid-cols-2">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="invoice_prefix">Invoice Prefix</Label>
-                                                <Input
-                                                    id="invoice_prefix"
-                                                    value={invoicePrefix}
-                                                    onChange={(e) => setInvoicePrefix(e.target.value)}
-                                                    placeholder="e.g. INV-"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="decimal_precision">Decimal Precision</Label>
-                                                <Input
-                                                    id="decimal_precision"
-                                                    type="number"
-                                                    min="0"
-                                                    max="4"
-                                                    value={decimalPrecision}
-                                                    onChange={(e) => setDecimalPrecision(e.target.value)}
-                                                />
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="invoice_template">Template Style</Label>
-                                                <Select
-                                                    value={invoiceTemplate}
-                                                    onValueChange={setInvoiceTemplate}
-                                                >
-                                                    <SelectTrigger id="invoice_template">
-                                                        <SelectValue placeholder="Select template" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="classic">Classic</SelectItem>
-                                                        <SelectItem value="modern">Modern</SelectItem>
-                                                        <SelectItem value="minimal">Minimal</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="primary_color">Primary Color</Label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        type="color"
-                                                        className="w-12 h-10 p-1 cursor-pointer"
-                                                        value={primaryColor}
-                                                        onChange={(e) => setPrimaryColor(e.target.value)}
-                                                    />
-                                                    <Input
-                                                        value={primaryColor}
-                                                        onChange={(e) => setPrimaryColor(e.target.value)}
-                                                        placeholder="#000000"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2 flex items-center pt-8">
-                                                <div className="flex items-center space-x-2">
-                                                    <input
-                                                        type="checkbox"
-                                                        id="show_logo"
-                                                        checked={showLogo}
-                                                        onChange={(e) => setShowLogo(e.target.checked)}
-                                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                                    />
-                                                    <Label htmlFor="show_logo">Show Logo on Invoice</Label>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div className="flex justify-end">
-                                            <Button type="submit" disabled={isSavingInvoice}>
-                                                Save Settings
-                                            </Button>
-                                        </div>
-                                    </form>
-                                )}
                             </CardContent>
                         </Card>
                     </div>

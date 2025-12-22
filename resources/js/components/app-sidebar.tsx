@@ -13,7 +13,7 @@ import {
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, FileText, Folder, Landmark, LayoutGrid, LayoutTemplate, Settings, Receipt } from 'lucide-react';
+import { BookOpen, FileText, Folder, Landmark, LayoutGrid, LayoutTemplate, Settings, Receipt, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -26,6 +26,11 @@ const mainNavItems: NavItem[] = [
         title: 'Invoices',
         href: '/invoices',
         icon: Receipt,
+    },
+    {
+        title: 'Clients',
+        href: '/clients',
+        icon: Users,
     },
     {
         title: 'Salary Slips',

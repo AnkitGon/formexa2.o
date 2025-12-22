@@ -20,6 +20,7 @@ return new class extends Migration
             $table->decimal('unit_price', 15, 2)->default(0);
             $table->decimal('tax_rate', 5, 2)->default(0); // e.g. 5.00 for 5%
             $table->decimal('amount', 15, 2)->default(0); // qty * price
+            $table->enum('tax_type', ['percent', 'fixed'])->default('percent');
             
             $table->timestamps();
         });

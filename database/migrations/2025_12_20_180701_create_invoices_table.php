@@ -16,6 +16,10 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // Seller
             // Buyer (nullable so ON DELETE SET NULL works)
             $table->foreignId('client_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('invoice_template_id')
+                ->nullable()
+                ->constrained('document_templates')
+                ->nullOnDelete();
             
             $table->string('invoice_number');
             $table->date('invoice_date');
@@ -34,10 +38,11 @@ return new class extends Migration
             // Additional Info
             $table->text('notes')->nullable();
             $table->text('terms')->nullable();
+            $table->boolean('show_logo')->default(true);
             
             $table->timestamps();
 
-            $table->unique(['user_id', 'invoice_number']); // Unique invoice number per user
+            $table->unique(['invoice_number']); // Unique invoice number per user
         });
     }
 

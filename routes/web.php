@@ -56,7 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('/{tax}', 'destroy')->whereNumber('tax')->name('destroy');
         });
 
-    Route::resource('clients', \App\Http\Controllers\ClientController::class);
+    Route::resource('clients', \App\Http\Controllers\ClientController::class)->except(['create']);
     Route::get('invoices/{invoice}/print', [\App\Http\Controllers\InvoiceController::class, 'print'])->name('invoices.print');
     Route::post('invoices/{invoice}/duplicate', [\App\Http\Controllers\InvoiceController::class, 'duplicate'])->name('invoices.duplicate');
     Route::post('invoices/{invoice}/send', [\App\Http\Controllers\InvoiceController::class, 'send'])->name('invoices.send');

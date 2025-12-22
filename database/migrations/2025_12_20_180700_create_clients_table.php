@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->text('address')->nullable();
-            $table->string('tax_id')->nullable(); // VAT / GST / etc.
             $table->text('notes')->nullable();
             $table->timestamps();
         });

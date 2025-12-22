@@ -92,7 +92,7 @@ export default function TaxIndex() {
                                 );
                             }
                         }}
-                        className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+                        className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground cursor-pointer"
                     >
                         Create
                     </button>

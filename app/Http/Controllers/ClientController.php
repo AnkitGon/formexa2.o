@@ -11,9 +11,15 @@ class ClientController extends Controller
 {
     public function index()
     {
+        $perPage = (int) request()->query('per_page', 10);
+        if ($perPage <= 0) {
+            $perPage = 10;
+        }
+
         $clients = Auth::user()->clients()
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->paginate($perPage)
+            ->appends(request()->query());
 
         return Inertia::render('Clients/Index', [
             'clients' => $clients
@@ -33,7 +39,6 @@ class ClientController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
-            'tax_id' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
         ]);
 
@@ -70,7 +75,6 @@ class ClientController extends Controller
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
-            'tax_id' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
         ]);
 

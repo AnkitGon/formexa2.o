@@ -1,9 +1,15 @@
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import { Head, Link, usePage } from '@inertiajs/react';
-import { Plus, Pencil, Trash2, Mail, Phone, MapPin } from 'lucide-react';
+import Pagination from '@/components/pagination';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import InputError from '@/components/input-error';
+import { Form, Head, useForm } from '@inertiajs/react';
+import { Plus } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface Client {
     id: number;
@@ -14,77 +20,272 @@ interface Client {
     address: string | null;
 }
 
-export default function Index({ clients }: { clients: Client[] }) {
+interface Paginator<T> {
+    data: T[];
+    links?: Array<{ url: string | null; label: string; active: boolean }>;
+}
+
+export default function Index({ clients }: { clients: Paginator<Client> }) {
+    const items = clients?.data ?? [];
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
+    const [activeClientId, setActiveClientId] = useState<number | null>(null);
+
+    const clientsById = useMemo(() => {
+        const map = new Map<number, Client>();
+        (clients?.data ?? []).forEach((c: Client) => map.set(Number(c.id), c));
+        return map;
+    }, [clients]);
+
+    const {
+        data,
+        setData,
+        post,
+        put,
+        processing,
+        errors,
+        reset,
+    } = useForm({
+        name: '',
+        company_name: '',
+        email: '',
+        phone: '',
+        address: '',
+        notes: '',
+    });
+
+    useEffect(() => {
+        if (Object.keys(errors ?? {}).length > 0) {
+            setDialogOpen(true);
+        }
+    }, [errors]);
+
     return (
         <AppLayout breadcrumbs={[{ title: 'Clients', href: '/clients' }]}>
             <Head title="Clients" />
 
             <div className="flex flex-col gap-6 p-4">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Clients</h1>
-                        <p className="text-muted-foreground">Manage your customer base.</p>
-                    </div>
-                    <Button asChild>
-                        <Link href={'/clients/create'}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Client
-                        </Link>
+                    <h1 className="text-lg font-semibold">Clients</h1>
+                    <Button
+                        type="button"
+                        className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground cursor-pointer"
+                        onClick={() => {
+                            reset();
+                            setDialogMode('create');
+                            setActiveClientId(null);
+                            setDialogOpen(true);
+                        }}
+                    >
+                        Create
                     </Button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {clients.map((client) => (
-                        <Card key={client.id}>
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-base font-medium">
-                                    {client.company_name || client.name}
-                                </CardTitle>
-                                <div className="flex gap-2">
-                                    <Button variant="ghost" size="icon" asChild>
-                                        <Link href={`/clients/${client.id}/edit`}>
-                                            <Pencil className="h-4 w-4" />
-                                        </Link>
-                                    </Button>
+                <div className="overflow-x-auto rounded-xl border border-sidebar-border/70">
+                    <table className="w-full text-sm">
+                        <thead className="border-b border-sidebar-border/70 bg-muted/30 text-left">
+                            <tr>
+                                <th className="px-3 py-2">Name</th>
+                                <th className="px-3 py-2">Company</th>
+                                <th className="px-3 py-2">Email</th>
+                                <th className="px-3 py-2">Phone</th>
+                                <th className="px-3 py-2">Address</th>
+                                <th className="px-3 py-2 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {items.length === 0 && (
+                                <tr className="border-b border-sidebar-border/50 last:border-b-0">
+                                    <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div>No data found.</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            )}
 
-                                    {/* Delete would need a proper form/dialog, skipping for brevity but can be added */}
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid gap-2 text-sm text-muted-foreground">
-                                    {client.company_name && (
-                                        <div className="font-semibold text-foreground">{client.name}</div>
-                                    )}
-                                    {client.email && (
-                                        <div className="flex items-center gap-2">
-                                            <Mail className="h-4 w-4" />
-                                            {client.email}
+                            {items.map((client) => (
+                                <tr
+                                    key={client.id}
+                                    className="border-b border-sidebar-border/50 last:border-b-0"
+                                >
+                                    <td className="px-3 py-2 font-medium text-foreground">
+                                        {client.name}
+                                    </td>
+                                    <td className="px-3 py-2">{client.company_name ?? '—'}</td>
+                                    <td className="px-3 py-2">{client.email ?? '—'}</td>
+                                    <td className="px-3 py-2">{client.phone ?? '—'}</td>
+                                    <td className="px-3 py-2">
+                                        {client.address ? (
+                                            <span className="line-clamp-2 whitespace-pre-line">{client.address}</span>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                        <div className="flex justify-end gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setDialogMode('edit');
+                                                    setActiveClientId(Number(client.id));
+                                                    setData({
+                                                        name: client.name ?? '',
+                                                        company_name: client.company_name ?? '',
+                                                        email: client.email ?? '',
+                                                        phone: client.phone ?? '',
+                                                        address: client.address ?? '',
+                                                        notes: '',
+                                                    });
+                                                    setDialogOpen(true);
+                                                }}
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Form
+                                                method="post"
+                                                action={`/clients/${client.id}`}
+                                                className="inline"
+                                                onSubmit={(e) => {
+                                                    if (!window.confirm('Are you sure you want to delete this item?')) {
+                                                        e.preventDefault();
+                                                    }
+                                                }}
+                                            >
+                                                <input type="hidden" name="_method" value="DELETE" />
+                                                <Button type="submit" variant="destructive">
+                                                    Delete
+                                                </Button>
+                                            </Form>
                                         </div>
-                                    )}
-                                    {client.phone && (
-                                        <div className="flex items-center gap-2">
-                                            <Phone className="h-4 w-4" />
-                                            {client.phone}
-                                        </div>
-                                    )}
-                                    {client.address && (
-                                        <div className="flex items-start gap-2">
-                                            <MapPin className="h-4 w-4 mt-0.5" />
-                                            <span className="whitespace-pre-line truncate line-clamp-2">{client.address}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-
-                    {clients.length === 0 && (
-                        <div className="col-span-full py-12 text-center text-muted-foreground">
-                            No clients found. Create one to get started.
-                        </div>
-                    )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
+
+                <Pagination links={clients?.links} />
             </div>
+
+            <Dialog
+                open={dialogOpen}
+                onOpenChange={(open) => {
+                    setDialogOpen(open);
+                    if (!open) {
+                        reset();
+                        setDialogMode('create');
+                        setActiveClientId(null);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>{dialogMode === 'create' ? 'Create Client' : 'Edit Client'}</DialogTitle>
+                    </DialogHeader>
+
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (dialogMode === 'edit' && activeClientId !== null) {
+                                put(`/clients/${activeClientId}`, {
+                                    preserveScroll: true,
+                                    onSuccess: () => {
+                                        reset();
+                                        setDialogMode('create');
+                                        setActiveClientId(null);
+                                        setDialogOpen(false);
+                                    },
+                                });
+                            } else {
+                                post('/clients', {
+                                    preserveScroll: true,
+                                    onSuccess: () => {
+                                        reset();
+                                        setDialogOpen(false);
+                                    },
+                                });
+                            }
+                        }}
+                        className="space-y-4"
+                    >
+                        <div className="grid gap-2">
+                            <Label htmlFor="name">Contact Name *</Label>
+                            <Input
+                                id="name"
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
+                                required
+                            />
+                            <InputError message={errors.name} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="company_name">Company Name</Label>
+                            <Input
+                                id="company_name"
+                                value={data.company_name}
+                                onChange={(e) => setData('company_name', e.target.value)}
+                            />
+                            <InputError message={errors.company_name} />
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    value={data.email}
+                                    onChange={(e) => setData('email', e.target.value)}
+                                />
+                                <InputError message={errors.email} />
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="phone">Phone</Label>
+                                <Input
+                                    id="phone"
+                                    value={data.phone}
+                                    onChange={(e) => setData('phone', e.target.value)}
+                                />
+                                <InputError message={errors.phone} />
+                            </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="address">Address</Label>
+                            <Textarea
+                                id="address"
+                                value={data.address}
+                                onChange={(e) => setData('address', e.target.value)}
+                                rows={3}
+                            />
+                            <InputError message={errors.address} />
+                        </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                                id="notes"
+                                value={data.notes}
+                                onChange={(e) => setData('notes', e.target.value)}
+                                rows={2}
+                            />
+                            <InputError message={errors.notes} />
+                        </div>
+
+                        <DialogFooter className="pt-2">
+                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                Save
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </AppLayout>
     );
 }
