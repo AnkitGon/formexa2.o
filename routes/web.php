@@ -5,7 +5,6 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\SalarySlipController;
-use App\Http\Controllers\SalarySlipTemplateController;
 use App\Http\Controllers\TaxController;
 
 Route::get('/', function () {
@@ -34,9 +33,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/{salarySlip}/download', 'downloadPdf')->name('download');
         });
 
-    Route::prefix('template/salary-slip')
-        ->name('template.salary-slip.')
-        ->controller(SalarySlipTemplateController::class)
+    Route::prefix('template')
+        ->name('template.')
+        ->controller(\App\Http\Controllers\TemplateController::class)
         ->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create', 'create')->name('create');
@@ -56,6 +55,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/{tax}', 'update')->whereNumber('tax')->name('update');
             Route::delete('/{tax}', 'destroy')->whereNumber('tax')->name('destroy');
         });
+
+    Route::resource('clients', \App\Http\Controllers\ClientController::class);
+    Route::get('invoices/{invoice}/print', [\App\Http\Controllers\InvoiceController::class, 'print'])->name('invoices.print');
+    Route::post('invoices/{invoice}/duplicate', [\App\Http\Controllers\InvoiceController::class, 'duplicate'])->name('invoices.duplicate');
+    Route::post('invoices/{invoice}/send', [\App\Http\Controllers\InvoiceController::class, 'send'])->name('invoices.send');
+    Route::post('invoices/{invoice}/payments', [\App\Http\Controllers\PaymentController::class, 'store'])->name('invoices.payments.store');
+    Route::delete('invoices/{invoice}/payments/{payment}', [\App\Http\Controllers\PaymentController::class, 'destroy'])->name('invoices.payments.destroy');
+    Route::resource('invoices', \App\Http\Controllers\InvoiceController::class);
 });
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';

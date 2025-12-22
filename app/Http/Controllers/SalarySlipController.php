@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\DocumentTemplate;
+use App\Models\User;
+use App\Models\UserSetting;
 use App\Models\SalarySlip;
 use App\Models\Tax;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
@@ -51,6 +54,53 @@ class SalarySlipController extends Controller
         }
 
         return '/' . ltrim($path, '/');
+    }
+
+    private function resolveSettingsDefaults(?User $user): array
+    {
+        $ttlSeconds = 300;
+        $settingsKeys = [
+            'company_name',
+            'company_address',
+            'date_format',
+            'time_format',
+            'default_currency',
+            'currency_symbol_position',
+        ];
+
+        $userSettings = $user
+            ? Cache::remember(
+                "user_settings:{$user->id}:salary_slip_defaults",
+                $ttlSeconds,
+                fn () => UserSetting::getKeysForUser($user->id, $settingsKeys),
+            )
+            : [];
+
+        $adminId = null;
+        if ($user && $user->relationLoaded('roles') && $user->roles->contains('slug', 'admin')) {
+            $adminId = $user->id;
+        } else {
+            $adminId = Cache::remember(
+                'user_settings:admin_id',
+                $ttlSeconds,
+                fn () => User::query()
+                    ->whereHas('roles', function ($query) {
+                        $query->where('slug', 'admin');
+                    })
+                    ->orderBy('id')
+                    ->value('id'),
+            );
+        }
+
+        $adminSettings = $adminId
+            ? Cache::remember(
+                'user_settings:' . ((int) $adminId) . ':salary_slip_defaults',
+                $ttlSeconds,
+                fn () => UserSetting::getKeysForUser((int) $adminId, $settingsKeys),
+            )
+            : [];
+
+        return array_merge($adminSettings, $userSettings);
     }
 
     private function signatureSrcForPdf($value): ?string
@@ -720,7 +770,7 @@ class SalarySlipController extends Controller
         ]);
     }
 
-    public function show(SalarySlip $salarySlip)
+    public function show(Request $request, SalarySlip $salarySlip)
     {
         $this->requireSalarySlipOwner($salarySlip);
 
@@ -734,6 +784,7 @@ class SalarySlipController extends Controller
 
         return Inertia::render('salary-slip/show', [
             'salarySlip' => $salarySlip,
+            'settingsDefaults' => $this->resolveSettingsDefaults($request->user()),
         ]);
     }
 
@@ -858,6 +909,7 @@ class SalarySlipController extends Controller
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView($view, [
             'salarySlip' => $salarySlip,
             'template' => $salarySlip->template,
+            'settingsDefaults' => $this->resolveSettingsDefaults($salarySlip->user),
         ]);
 
         return $pdf->stream('salary-slip-' . $salarySlip->id . '.pdf');
@@ -887,6 +939,7 @@ class SalarySlipController extends Controller
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView($view, [
             'salarySlip' => $salarySlip,
             'template' => $salarySlip->template,
+            'settingsDefaults' => $this->resolveSettingsDefaults($salarySlip->user),
         ]);
 
         return $pdf->download('salary-slip-' . $salarySlip->id . '.pdf');

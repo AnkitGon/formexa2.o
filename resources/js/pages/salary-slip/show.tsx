@@ -6,12 +6,22 @@ import { Separator } from '@/components/ui/separator';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
 
+type SettingsDefaults = {
+    company_name?: string | null;
+    company_address?: string | null;
+    date_format?: string | null;
+    time_format?: string | null;
+    default_currency?: string | null;
+    currency_symbol_position?: string | null;
+};
+
 type Props = SharedData & {
     salarySlip: any;
+    settingsDefaults?: SettingsDefaults;
 };
 
 export default function SalarySlipShow() {
-    const { salarySlip } = usePage<Props>().props;
+    const { salarySlip, settingsDefaults } = usePage<Props>().props;
 
     const breadcrumbs: BreadcrumbItem[] = [
         { title: 'Salary Slips', href: '/salary-slip' },
@@ -23,13 +33,85 @@ export default function SalarySlipShow() {
     const payslipLabels = (meta.payslip_labels ?? {}) as Record<string, any>;
     const employeeLabels = (meta.employee_labels ?? {}) as Record<string, any>;
 
+    const dateFormat = (settingsDefaults?.date_format as string | null) ?? 'YYYY-MM-DD';
+    const timeFormat = (settingsDefaults?.time_format as string | null) ?? 'hh:mm A';
+    const defaultCurrency = (settingsDefaults?.default_currency as string | null) ?? 'USD';
+    const currencySymbolPosition =
+        (settingsDefaults?.currency_symbol_position as string | null) ?? 'prefix';
+
+    const formatDateTime = (value: any, includeTime: boolean = true) => {
+        const raw = String(value ?? '').trim();
+        if (!raw) {
+            return '-';
+        }
+
+        const date = new Date(raw);
+        if (Number.isNaN(date.getTime())) {
+            return raw;
+        }
+
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const y = date.getFullYear();
+        const m = pad(date.getMonth() + 1);
+        const d = pad(date.getDate());
+
+        let dateString = `${y}-${m}-${d}`;
+        if (dateFormat === 'DD/MM/YYYY') {
+            dateString = `${d}/${m}/${y}`;
+        } else if (dateFormat === 'MM/DD/YYYY') {
+            dateString = `${m}/${d}/${y}`;
+        }
+
+        if (!includeTime) {
+            return dateString;
+        }
+
+        const hours = date.getHours();
+        const minutes = pad(date.getMinutes());
+        const seconds = pad(date.getSeconds());
+
+        let timeString: string;
+        if (timeFormat === 'hh:mm A') {
+            const hour12 = hours % 12 || 12;
+            const meridiem = hours >= 12 ? 'PM' : 'AM';
+            timeString = `${pad(hour12)}:${minutes} ${meridiem}`;
+        } else if (timeFormat === 'HH:mm') {
+            timeString = `${pad(hours)}:${minutes}`;
+        } else if (timeFormat === 'HH:mm:ss') {
+            timeString = `${pad(hours)}:${minutes}:${seconds}`;
+        } else {
+            timeString = date.toLocaleTimeString();
+        }
+
+        return `${dateString} ${timeString}`;
+    };
+
+    const hasTimeComponent = (val: unknown) =>
+        typeof val === 'string' && /\d{2}:\d{2}/.test(val);
+
     const payslipRows = Object.entries(payslipLabels)
-        .map(([key, label]) => ({
-            key,
-            label: String(label ?? '').trim(),
-            value: meta[key],
-        }))
-        .filter((r) => r.label && r.value !== undefined && r.value !== null && String(r.value).trim() !== '');
+        .map(([key, label]) => {
+            const rawValue = meta[key];
+            const includeTime =
+                hasTimeComponent(rawValue) &&
+                !(String(key).toLowerCase().includes('date') || String(label ?? '').toLowerCase().includes('date'));
+            return {
+                key,
+                label: String(label ?? '').trim(),
+                value: rawValue,
+                displayValue:
+                    typeof rawValue === 'string' || rawValue instanceof Date
+                        ? formatDateTime(rawValue, includeTime)
+                        : rawValue,
+            };
+        })
+        .filter(
+            (r) =>
+                r.label &&
+                r.value !== undefined &&
+                r.value !== null &&
+                String(r.value).trim() !== '',
+        );
 
     const employeeRows = Object.entries(employeeLabels)
         .map(([key, label]) => ({
@@ -44,28 +126,23 @@ export default function SalarySlipShow() {
 
     const formatMoney = (n: any) => {
         const num = Number(n ?? 0);
-        return Number.isFinite(num) ? num.toFixed(2) : '0.00';
-    };
+        if (!Number.isFinite(num)) return '0.00';
 
-    const formatDateTime = (value: any) => {
-        const raw = String(value ?? '').trim();
-        if (!raw) {
-            return '-';
+        const formatter = new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: defaultCurrency || 'USD',
+        });
+
+        const formatted = formatter.format(num);
+        if (!currencySymbolPosition || currencySymbolPosition === 'prefix') {
+            return formatted;
         }
 
-        const date = new Date(raw);
-        if (Number.isNaN(date.getTime())) {
-            return raw;
-        }
-
-        try {
-            return new Intl.DateTimeFormat(undefined, {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-            }).format(date);
-        } catch {
-            return date.toLocaleString();
-        }
+        // Move symbol to suffix if requested (basic handling)
+        const parts = formatter.formatToParts(num);
+        const symbol = parts.find((p) => p.type === 'currency')?.value ?? '';
+        const amount = parts.filter((p) => p.type !== 'currency').map((p) => p.value).join('');
+        return `${amount}${symbol}`;
     };
 
     const employerSignatureSrc = String(salarySlip?.employer_signature_url ?? '').trim();
@@ -149,7 +226,11 @@ export default function SalarySlipShow() {
                                                 <div key={r.key} className="flex items-start justify-between gap-4">
                                                     <div className="text-sm text-muted-foreground">{r.label}</div>
                                                     <div className="text-sm font-medium text-right">
-                                                        {String(r.value)}
+                                                        {String(
+                                                            r.displayValue !== undefined && r.displayValue !== null
+                                                                ? r.displayValue
+                                                                : r.value,
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}

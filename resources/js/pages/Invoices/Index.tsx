@@ -1,0 +1,160 @@
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
+import { Head, Link } from '@inertiajs/react';
+import { Plus, Eye, Pencil, FileText, ArrowLeft, ArrowRight } from 'lucide-react';
+
+interface Client {
+    id: number;
+    name: string;
+    company_name: string | null;
+}
+
+interface Invoice {
+    id: number;
+    invoice_number: string;
+    invoice_date: string;
+    due_date: string | null;
+    status: 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled';
+    total: number;
+    client: Client | null;
+}
+
+interface Paginator<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    prev_page_url: string | null;
+    next_page_url: string | null;
+    from: number | null;
+    to: number | null;
+    total: number;
+    per_page: number;
+}
+
+const statusColors: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+    draft: "secondary",
+    sent: "default",
+    paid: "default",
+    partially_paid: "default",
+    overdue: "destructive",
+    cancelled: "outline",
+};
+
+export default function Index({ invoices }: { invoices: Paginator<Invoice> }) {
+    const items = invoices?.data ?? [];
+
+    return (
+        <AppLayout breadcrumbs={[{ title: 'Invoices', href: '/invoices' }]}>
+            <Head title="Invoices" />
+
+            <div className="flex flex-col gap-6 p-4">
+                <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                        <h1 className="text-2xl font-bold tracking-tight">Invoices</h1>
+                    </div>
+                    <div className="flex gap-2">
+                        <Link
+                            href="/invoices/create"
+                            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+                        >
+                            Create
+                        </Link>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-sidebar-border/70">
+                    <table className="w-full text-sm">
+                        <thead className="border-b border-sidebar-border/70 bg-muted/30 text-left">
+                                <tr>
+                                    <th className="px-4 py-3">Invoice</th>
+                                    <th className="px-4 py-3">Client</th>
+                                    <th className="px-4 py-3">Dates</th>
+                                    <th className="px-4 py-3 text-right">Total</th>
+                                    <th className="px-4 py-3 text-right">Actions</th>
+                                </tr>
+                        </thead>
+                        <tbody>
+                                {items.length === 0 && (
+                                    <tr className="border-b border-sidebar-border/50 last:border-b-0">
+                                        <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div>No data found.</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {items.map((invoice) => (
+                                    <tr key={invoice.id} className="border-b border-sidebar-border/50 last:border-b-0">
+                                        <td className="px-3 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold">{invoice.invoice_number}</span>
+                                                <Badge variant={statusColors[invoice.status] || 'default'}>
+                                                    {invoice.status.replace('_', ' ')}
+                                                </Badge>
+                                            </div>
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground">
+                                            {invoice.client?.company_name || invoice.client?.name || 'Unknown Client'}
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground text-sm">
+                                            Issued: {invoice.invoice_date}{' '}
+                                            {invoice.due_date && `• Due: ${invoice.due_date}`}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-semibold">
+                                            ${Number(invoice.total).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <div className="flex justify-end gap-2">
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <Link href={`/invoices/${invoice.id}`}>View</Link>
+                                                </Button>
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <Link href={`/invoices/${invoice.id}/edit`}>Edit</Link>
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {items.length > 0 && (
+                    <div className="flex items-center justify-between border-t pt-4">
+                        <div className="text-sm text-muted-foreground">
+                            Showing {invoices.from ?? 0}-{invoices.to ?? items.length} of {invoices.total ?? items.length}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                disabled={!invoices.prev_page_url}
+                            >
+                                <Link href={invoices.prev_page_url || '#'} preserveScroll>
+                                    <ArrowLeft className="h-4 w-4 mr-1" />
+                                    Prev
+                                </Link>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                disabled={!invoices.next_page_url}
+                            >
+                                <Link href={invoices.next_page_url || '#'} preserveScroll>
+                                    Next
+                                    <ArrowRight className="h-4 w-4 ml-1" />
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </AppLayout>
+    );
+}

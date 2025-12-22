@@ -2,8 +2,21 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Form } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
+
+const getCsrfToken = () =>
+    (
+        document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
+    )?.content ?? '';
 
 type TemplateFormValues = {
     id?: number;
@@ -17,6 +30,7 @@ type TemplateFormValues = {
     font_size?: number | string;
     line_height?: number | string;
     is_active?: boolean;
+    document_type?: string;
 };
 
 type Props = {
@@ -32,19 +46,12 @@ export default function SalarySlipTemplateForm({
     designOptions,
     template,
 }: Props) {
-    const getCookieValue = (name: string): string | null => {
-        const parts = document.cookie.split(';').map((c) => c.trim());
-        const found = parts.find((c) => c.startsWith(`${name}=`));
-        if (!found) {
-            return null;
-        }
+    const DEFAULT_FONT = 'default';
+    const csrfToken = getCsrfToken();
 
-        const value = found.substring(name.length + 1);
-        try {
-            return decodeURIComponent(value);
-        } catch {
-            return value;
-        }
+    const triggerFormChange = () => {
+        const form = document.getElementById('templateForm');
+        form?.dispatchEvent(new Event('change', { bubbles: true }));
     };
 
     const normalizeColor = (value: unknown, fallback: string) => {
@@ -64,10 +71,80 @@ export default function SalarySlipTemplateForm({
         return fallback;
     };
 
+    const invoiceDesignOptions: Record<string, string> = {
+        business: 'Business',
+        retail: 'Retail',
+        service: 'Service',
+        'tax-invoice': 'Tax Invoice',
+    };
+
+    const resolveDesignOptions = (docType: string) =>
+        docType === 'invoice' ? invoiceDesignOptions : designOptions ?? {};
+
+    const getDefaultDesign = (docType: string, opts: Record<string, string>) => {
+        const entries =
+            docType === 'invoice'
+                ? Object.keys(invoiceDesignOptions)
+                : Object.keys(opts ?? {});
+        return entries.length ? entries[0] : docType === 'invoice' ? 'business' : 'classic';
+    };
+
     const [previewHtml, setPreviewHtml] = useState('');
     const [previewError, setPreviewError] = useState<string | null>(null);
+    const [documentType, setDocumentType] = useState<string>(
+        mode === 'create'
+            ? 'salary_slip'
+            : String(template?.document_type ?? 'salary_slip'),
+    );
+    const [designCode, setDesignCode] = useState<string>(
+        mode === 'create'
+            ? getDefaultDesign(
+                  mode === 'create'
+                      ? 'salary_slip'
+                      : String(template?.document_type ?? 'salary_slip'),
+                  resolveDesignOptions(
+                      mode === 'create'
+                          ? 'salary_slip'
+                          : String(template?.document_type ?? 'salary_slip'),
+                  ),
+              )
+            : String(
+                  template?.code ??
+                      getDefaultDesign(
+                          String(template?.document_type ?? 'salary_slip'),
+                          resolveDesignOptions(
+                              String(template?.document_type ?? 'salary_slip'),
+                          ),
+                      ),
+              ),
+    );
+    const [fontFamily, setFontFamily] = useState<string>(
+        template?.font_family ?? DEFAULT_FONT,
+    );
     const previewTimeoutRef = useRef<number | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    // Ensure design aligns with current module and defaults to first option on change
+    useEffect(() => {
+        const opts = resolveDesignOptions(documentType);
+        const next = getDefaultDesign(documentType, opts);
+        if (designCode !== next) {
+            setDesignCode(next);
+            triggerFormChange();
+        }
+    }, [documentType]);
+
+    const designOptionsForModule = resolveDesignOptions(documentType);
+    const selectedDesignCode =
+        designCode && designOptionsForModule[designCode]
+            ? designCode
+            : getDefaultDesign(documentType, designOptionsForModule);
+
+    useEffect(() => {
+        if (designCode !== selectedDesignCode) {
+            setDesignCode(selectedDesignCode);
+        }
+    }, [selectedDesignCode, designCode, documentType]);
 
     useEffect(() => {
         const form = document.getElementById('templateForm') as HTMLFormElement | null;
@@ -76,16 +153,21 @@ export default function SalarySlipTemplateForm({
         }
 
         const loadPreview = () => {
+            if (
+                documentType === 'invoice' &&
+                !designOptionsForModule[selectedDesignCode ?? '']
+            ) {
+                const next = getDefaultDesign(documentType, designOptionsForModule);
+                setDesignCode(next);
+                return;
+            }
+
             if (previewTimeoutRef.current) {
                 window.clearTimeout(previewTimeoutRef.current);
             }
 
             previewTimeoutRef.current = window.setTimeout(async () => {
-                const token = (
-                    document.querySelector(
-                        'meta[name="csrf-token"]',
-                    ) as HTMLMetaElement | null
-                )?.content;
+                const token = getCsrfToken();
 
                 const xsrfToken = getCookieValue('XSRF-TOKEN');
                 const csrfToken = token || xsrfToken;
@@ -95,6 +177,8 @@ export default function SalarySlipTemplateForm({
                 if (csrfToken && !fd.has('_token')) {
                     fd.append('_token', csrfToken);
                 }
+                // Ensure the latest font selection is sent even if state/render lag behind the change event
+                fd.set('font_family', fontFamily === DEFAULT_FONT ? '' : fontFamily);
 
                 abortControllerRef.current?.abort();
                 const controller = new AbortController();
@@ -102,17 +186,21 @@ export default function SalarySlipTemplateForm({
 
                 try {
                     setPreviewError(null);
-                    const response = await fetch('/template/salary-slip/preview', {
+                    const previewUrl = '/template/preview';
+
+                    const response = await fetch(previewUrl, {
                         method: 'POST',
                         body: fd,
                         signal: controller.signal,
                         credentials: 'include',
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
-                            ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+                            ...(token ? { 'X-CSRF-TOKEN': token } : {}),
                         },
+                        // Use include to support scenarios where the frontend runs on a different
+                        // dev host (e.g., Vite) so session cookies are sent with the request.
+                        credentials: 'include',
                     });
-
                     const html = await response.text();
                     if (!response.ok) {
                         setPreviewError(html);
@@ -143,17 +231,18 @@ export default function SalarySlipTemplateForm({
                 window.clearTimeout(previewTimeoutRef.current);
             }
         };
-    }, []);
+    }, [documentType, selectedDesignCode, designOptionsForModule, fontFamily]);
 
     return (
         <Form id="templateForm" method="post" action={action} className="space-y-6">
             {({ processing, errors }) => (
                 <>
+                    <input type="hidden" name="_token" value={csrfToken} />
                     {mode === 'edit' && (
                         <input type="hidden" name="_method" value="PUT" />
                     )}
 
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                         <div className="space-y-6">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="grid gap-2">
@@ -168,34 +257,111 @@ export default function SalarySlipTemplateForm({
                                 </div>
 
                                 <div className="grid gap-2">
-                                    <Label htmlFor="code">Design</Label>
-                                    <select
-                                        id="code"
-                                        name="code"
-                                        required
-                                        defaultValue={
-                                            mode === 'create'
-                                                ? 'classic'
-                                                : template?.code ?? ''
-                                        }
-                                        className="h-9 w-full rounded-md border border-sidebar-border/70 bg-background px-3 text-sm"
+                                    <Label htmlFor="document_type">Module</Label>
+                                    <input
+                                        type="hidden"
+                                        name="document_type"
+                                        value={documentType}
+                                    />
+                                    <Select
+                                        value={documentType}
+                                        onValueChange={(value) => {
+                                            setDocumentType(value);
+                                            setDesignCode(
+                                                getDefaultDesign(
+                                                    value,
+                                                    resolveDesignOptions(value),
+                                                ),
+                                            );
+                                            triggerFormChange();
+                                        }}
                                     >
-                                        {mode === 'edit' && (
-                                            <option value="">Select design</option>
-                                        )}
-                                        {Object.entries(designOptions ?? {}).map(
-                                            ([value, label]) => (
-                                                <option key={value} value={value}>
-                                                    {label}
-                                                </option>
-                                            ),
-                                        )}
-                                    </select>
-                                    <InputError message={(errors as any).code} />
+                                        <SelectTrigger id="document_type" className="h-9">
+                                            <SelectValue placeholder="Select module" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="salary_slip">Salary Slip</SelectItem>
+                                            <SelectItem value="invoice">Invoice</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={(errors as any).document_type} />
                                 </div>
                             </div>
 
                             <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="code">Design / Layout</Label>
+                                    <input
+                                        type="hidden"
+                                        name="code"
+                                        value={
+                                            selectedDesignCode ??
+                                            getDefaultDesign(
+                                                documentType,
+                                                designOptionsForModule,
+                                            )
+                                        }
+                                    />
+                                    <Select
+                                        key={`${documentType}-design-select`}
+                                        value={selectedDesignCode}
+                                        onValueChange={(value) => {
+                                            setDesignCode(value);
+                                            triggerFormChange();
+                                        }}
+                                    >
+                                        <SelectTrigger id="code" className="h-9">
+                                            <SelectValue placeholder="Select design" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {Object.entries(
+                                                documentType === 'invoice'
+                                                    ? invoiceDesignOptions
+                                                    : designOptions ?? {},
+                                            ).map(([value, label]) => (
+                                                <SelectItem key={value} value={value}>
+                                                    {label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={(errors as any).code} />
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="font_family">Font family</Label>
+                                    <input
+                                        type="hidden"
+                                        name="font_family"
+                                        value={fontFamily === DEFAULT_FONT ? '' : fontFamily}
+                                    />
+                                    <Select
+                                        value={fontFamily}
+                                        onValueChange={(value) => {
+                                            setFontFamily(value);
+                                            triggerFormChange();
+                                        }}
+                                    >
+                                        <SelectTrigger id="font_family" className="h-9">
+                                            <SelectValue placeholder="Select font" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={DEFAULT_FONT}>
+                                                Default (Arial)
+                                            </SelectItem>
+                                            <SelectItem value="Times New Roman, serif">
+                                                Times New Roman
+                                            </SelectItem>
+                                            <SelectItem value="Calibri, sans-serif">Calibri</SelectItem>
+                                            <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
+                                            <SelectItem value="Roboto, sans-serif">Roboto</SelectItem>
+                                          
+                                        </SelectContent>
+                                    </Select>
+                                    <InputError message={(errors as any).font_family} />
+                                </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="font_size">Base font size (px)</Label>
                                     <Input
@@ -229,44 +395,9 @@ export default function SalarySlipTemplateForm({
                                 </div>
                             </div>
 
-                            <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-4 md:grid-cols-3">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="font_family">Font family</Label>
-                                    <select
-                                        id="font_family"
-                                        name="font_family"
-                                        className="h-9 w-full rounded-md border border-sidebar-border/70 bg-background px-3 text-sm"
-                                        defaultValue={template?.font_family ?? ''}
-                                    >
-                                        <option value="">Default (DejaVu Sans)</option>
-                                        <option value="DejaVu Sans, sans-serif">
-                                            Sans Serif (Default)
-                                        </option>
-                                        <option value="Times New Roman, serif">
-                                            Times New Roman (Serif)
-                                        </option>
-                                        <option value="Georgia, serif">Georgia (Serif)</option>
-                                        <option value="Arial, sans-serif">Arial</option>
-                                        <option value="Roboto, sans-serif">Roboto</option>
-                                        <option value="Open Sans, sans-serif">
-                                            Open Sans
-                                        </option>
-                                        <option value="Lato, sans-serif">Lato</option>
-                                        <option value="Montserrat, sans-serif">
-                                            Montserrat
-                                        </option>
-                                        <option value="Poppins, sans-serif">Poppins</option>
-                                        <option value="Courier New, monospace">
-                                            Courier New (Monospace)
-                                        </option>
-                                    </select>
-                                    <InputError message={(errors as any).font_family} />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="primary_color">
-                                        Primary / header color
-                                    </Label>
-
+                                    <Label htmlFor="primary_color">Primary color</Label>
                                     <Input
                                         id="primary_color"
                                         name="primary_color"
@@ -280,9 +411,6 @@ export default function SalarySlipTemplateForm({
                                     />
                                     <InputError message={(errors as any).primary_color} />
                                 </div>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-2">
                                 <div className="grid gap-2">
                                     <Label htmlFor="accent_color">Accent color</Label>
                                     <Input
@@ -330,16 +458,37 @@ export default function SalarySlipTemplateForm({
 
                             <div className="flex items-center gap-2">
                                 <input
-                                    id="is_active"
+                                    type="hidden"
                                     name="is_active"
-                                    type="checkbox"
-                                    value="1"
-                                    defaultChecked={
+                                    value={
+                                        mode === 'create'
+                                            ? '1'
+                                            : template?.is_active
+                                              ? '1'
+                                              : '0'
+                                    }
+                                />
+                                <Checkbox
+                                    id="is_active"
+                                    checked={
                                         mode === 'create'
                                             ? true
                                             : Boolean(template?.is_active)
                                     }
-                                    className="h-4 w-4"
+                                    onCheckedChange={(v) => {
+                                        const form = document.getElementById(
+                                            'templateForm',
+                                        ) as HTMLFormElement | null;
+                                        const hidden = form?.querySelector(
+                                            'input[name="is_active"]',
+                                        ) as HTMLInputElement | null;
+                                        if (hidden) {
+                                            hidden.value = v === true ? '1' : '0';
+                                        }
+                                        form?.dispatchEvent(
+                                            new Event('change', { bubbles: true }),
+                                        );
+                                    }}
                                 />
                                 <Label htmlFor="is_active">Active</Label>
                             </div>
@@ -349,7 +498,7 @@ export default function SalarySlipTemplateForm({
                             </div>
                         </div>
 
-                        <div className="lg:sticky lg:top-4">
+                        <div className="lg:sticky lg:top-4 w-full max-w-[720px]">
                             <div className="overflow-hidden rounded-xl border border-sidebar-border/70 bg-white">
                                 {previewError ? (
                                     <pre className="max-h-[720px] overflow-auto p-3 text-xs text-destructive">
@@ -357,7 +506,7 @@ export default function SalarySlipTemplateForm({
                                     </pre>
                                 ) : (
                                     <iframe
-                                        title="Salary slip template preview"
+                                        title="Template preview"
                                         className="h-[720px] w-full"
                                         srcDoc={previewHtml}
                                     />

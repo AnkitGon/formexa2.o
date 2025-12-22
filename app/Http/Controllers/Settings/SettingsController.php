@@ -52,6 +52,7 @@ class SettingsController extends Controller
                 'logo_light_url' => $logoLightPath ? asset('storage/'.$logoLightPath) : null,
                 'favicon_url' => $faviconPath ? asset('storage/'.$faviconPath) : null,
             ],
+            'currencies' => config('currencies.options'),
         ]);
     }
 

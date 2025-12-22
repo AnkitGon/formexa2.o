@@ -13,12 +13,19 @@ import {
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Image as ImageIcon, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-type TabId = 'brand' | 'company' | 'salary_slip' | 'taxes' | 'security';
+type TabId = 'brand' | 'system' | 'invoice';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -30,6 +37,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function SettingsIndex({
     brand,
     settings,
+    currencies = [],
 }: {
     brand?: {
         logo_dark_url?: string | null;
@@ -37,6 +45,7 @@ export default function SettingsIndex({
         favicon_url?: string | null;
     };
     settings?: Record<string, string | null>;
+    currencies?: Array<{ value: string; label: string }>;
 }) {
     const allowedExtensions = useMemo(
         () => new Set(['jpg', 'jpeg', 'png', 'svg', 'webp']),
@@ -54,6 +63,11 @@ export default function SettingsIndex({
         [],
     );
 
+    const currencyOptions = useMemo(
+        () => (currencies ?? []).filter((c): c is { value: string; label: string } => !!c?.value && !!c?.label),
+        [currencies],
+    );
+
     const tabs = useMemo(
         () =>
             [
@@ -63,24 +77,14 @@ export default function SettingsIndex({
                     description: 'Upload logos and favicon',
                 },
                 {
-                    id: 'company' as const,
-                    title: 'Company',
-                    description: 'Business details and defaults',
+                    id: 'system' as const,
+                    title: 'System',
+                    description: 'Defaults and localization preferences',
                 },
                 {
-                    id: 'salary_slip' as const,
-                    title: 'Salary Slip',
-                    description: 'Templates and salary slip preferences',
-                },
-                {
-                    id: 'taxes' as const,
-                    title: 'Taxes',
-                    description: 'Tax calculation and deduction behavior',
-                },
-                {
-                    id: 'security' as const,
-                    title: 'Security',
-                    description: 'Authentication and access preferences',
+                    id: 'invoice' as const,
+                    title: 'Invoice',
+                    description: 'Invoice numbering, layout, and defaults',
                 },
             ] satisfies Array<{ id: TabId; title: string; description: string }>,
         [],
@@ -116,9 +120,48 @@ export default function SettingsIndex({
         (settings?.company_address as string | null) ?? '',
     );
 
+    const [dateFormat, setDateFormat] = useState<string>(
+        (settings?.date_format as string | null) ?? 'YYYY-MM-DD',
+    );
+    const [timeFormat, setTimeFormat] = useState<string>(
+        (settings?.time_format as string | null) ?? 'hh:mm A',
+    );
+    const [defaultCurrency, setDefaultCurrency] = useState<string>(
+        (settings?.default_currency as string | null) ?? '',
+    );
+    const [currencySymbolPosition, setCurrencySymbolPosition] = useState<string>(
+        (settings?.currency_symbol_position as string | null) ?? 'prefix',
+    );
+    const [systemErrors, setSystemErrors] = useState<Record<string, string | undefined>>({});
+    const [isSavingSystem, setIsSavingSystem] = useState(false);
+
+    // Invoice Settings State
+    const [invoicePrefix, setInvoicePrefix] = useState((settings?.invoice_prefix as string | null) ?? 'INV-');
+    const [invoiceTemplate, setInvoiceTemplate] = useState((settings?.invoice_template as string | null) ?? 'classic');
+    const [primaryColor, setPrimaryColor] = useState((settings?.primary_color as string | null) ?? '#000000');
+    const [showLogo, setShowLogo] = useState((settings?.show_logo as string | null) === '1');
+    const [decimalPrecision, setDecimalPrecision] = useState((settings?.decimal_precision as string | null) ?? '2');
+    const [isSavingInvoice, setIsSavingInvoice] = useState(false);
+
     const logoDarkRef = useRef<HTMLInputElement | null>(null);
     const logoLightRef = useRef<HTMLInputElement | null>(null);
     const faviconRef = useRef<HTMLInputElement | null>(null);
+
+    useEffect(() => {
+        setDateFormat((settings?.date_format as string | null) ?? 'YYYY-MM-DD');
+        setTimeFormat((settings?.time_format as string | null) ?? 'hh:mm A');
+        const fallbackCurrency = currencyOptions[0]?.value ?? '';
+        setDefaultCurrency((settings?.default_currency as string | null) ?? fallbackCurrency);
+        setCurrencySymbolPosition(
+            (settings?.currency_symbol_position as string | null) ?? 'prefix',
+        );
+    }, [
+        settings?.date_format,
+        settings?.time_format,
+        settings?.default_currency,
+        settings?.currency_symbol_position,
+        currencyOptions,
+    ]);
 
     const validateImageFile = (file: File | null): string | null => {
         if (!file) {
@@ -316,7 +359,7 @@ export default function SettingsIndex({
 
                     {previewUrl && (
                         <div className="overflow-hidden rounded-lg border border-sidebar-border/60 bg-muted/20">
-                            <div className="flex items-center justify-center p-4" style={{backgroundColor: 'rgb(249, 249, 249)'}}>
+                            <div className="flex items-center justify-center p-4" style={{ backgroundColor: 'rgb(249, 249, 249)' }}>
                                 <img
                                     src={previewUrl}
                                     alt={title}
@@ -558,36 +601,219 @@ export default function SettingsIndex({
                                     </form>
                                 )}
 
-                                {activeTab === 'company' && (
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-muted-foreground">
-                                            Add company-related settings here.
-                                        </p>
-                                    </div>
+                                {activeTab === 'system' && (
+                                    <form
+                                        className="space-y-6"
+                                        onSubmit={(e) => {
+                                            e.preventDefault();
+                                            setSystemErrors({});
+                                            router.post(
+                                                '/settings',
+                                                {
+                                                    date_format: dateFormat,
+                                                    time_format: timeFormat,
+                                                    default_currency: defaultCurrency,
+                                                    currency_symbol_position: currencySymbolPosition,
+                                                },
+                                                {
+                                                    preserveScroll: true,
+                                                    onStart: () => setIsSavingSystem(true),
+                                                    onFinish: () => setIsSavingSystem(false),
+                                                    onError: (errors) => {
+                                                        setSystemErrors(errors as Record<string, string>);
+                                                    },
+                                                },
+                                            );
+                                        }}
+                                    >
+                                        <div className="grid gap-4 lg:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="date_format">Date format</Label>
+                                                <Select
+                                                    value={dateFormat}
+                                                    onValueChange={setDateFormat}
+                                                >
+                                                    <SelectTrigger id="date_format">
+                                                        <SelectValue placeholder="Select date format" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                                                        <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                                                        <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError message={systemErrors.date_format} />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="time_format">Time format</Label>
+                                                <Select
+                                                    value={timeFormat}
+                                                    onValueChange={setTimeFormat}
+                                                >
+                                                    <SelectTrigger id="time_format">
+                                                        <SelectValue placeholder="Select time format" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="hh:mm A">12-hour (e.g., 02:30 PM)</SelectItem>
+                                                        <SelectItem value="HH:mm">24-hour (e.g., 14:30)</SelectItem>
+                                                        <SelectItem value="HH:mm:ss">24-hour with seconds</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError message={systemErrors.time_format} />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="default_currency">Default currency</Label>
+                                                <Select
+                                                    value={defaultCurrency}
+                                                    onValueChange={setDefaultCurrency}
+                                                >
+                                                    <SelectTrigger id="default_currency">
+                                                        <SelectValue placeholder="Select currency" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {currencyOptions.map((currency: { value: string; label: string }) => (
+                                                            <SelectItem key={currency.value} value={currency.value}>
+                                                                {currency.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError message={systemErrors.default_currency} />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="currency_symbol_position">
+                                                    Currency symbol position
+                                                </Label>
+                                                <Select
+                                                    value={currencySymbolPosition}
+                                                    onValueChange={setCurrencySymbolPosition}
+                                                >
+                                                    <SelectTrigger id="currency_symbol_position">
+                                                        <SelectValue placeholder="Select position" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="prefix">Prefix (e.g., $100)</SelectItem>
+                                                        <SelectItem value="suffix">Suffix (e.g., 100€)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <InputError message={systemErrors.currency_symbol_position} />
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="flex justify-end">
+                                            <Button type="submit" disabled={isSavingSystem}>
+                                                Save
+                                            </Button>
+                                        </div>
+                                    </form>
                                 )}
 
-                                {activeTab === 'salary_slip' && (
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-muted-foreground">
-                                            Add salary slip preferences here.
-                                        </p>
-                                    </div>
-                                )}
+                                {activeTab === 'invoice' && (
+                                    <form
+                                        className="space-y-6"
+                                        onSubmit={(e) => {
+                                            e.preventDefault();
+                                            router.post(
+                                                '/settings',
+                                                {
+                                                    invoice_prefix: invoicePrefix,
+                                                    invoice_template: invoiceTemplate,
+                                                    primary_color: primaryColor,
+                                                    show_logo: showLogo ? '1' : '0',
+                                                    decimal_precision: decimalPrecision,
+                                                },
+                                                {
+                                                    preserveScroll: true,
+                                                    onStart: () => setIsSavingInvoice(true),
+                                                    onFinish: () => setIsSavingInvoice(false),
+                                                }
+                                            );
+                                        }}
+                                    >
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="invoice_prefix">Invoice Prefix</Label>
+                                                <Input
+                                                    id="invoice_prefix"
+                                                    value={invoicePrefix}
+                                                    onChange={(e) => setInvoicePrefix(e.target.value)}
+                                                    placeholder="e.g. INV-"
+                                                />
+                                            </div>
 
-                                {activeTab === 'taxes' && (
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-muted-foreground">
-                                            Add tax-related preferences here.
-                                        </p>
-                                    </div>
-                                )}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="decimal_precision">Decimal Precision</Label>
+                                                <Input
+                                                    id="decimal_precision"
+                                                    type="number"
+                                                    min="0"
+                                                    max="4"
+                                                    value={decimalPrecision}
+                                                    onChange={(e) => setDecimalPrecision(e.target.value)}
+                                                />
+                                            </div>
 
-                                {activeTab === 'security' && (
-                                    <div className="space-y-2">
-                                        <p className="text-sm text-muted-foreground">
-                                            Add security preferences here.
-                                        </p>
-                                    </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="invoice_template">Template Style</Label>
+                                                <Select
+                                                    value={invoiceTemplate}
+                                                    onValueChange={setInvoiceTemplate}
+                                                >
+                                                    <SelectTrigger id="invoice_template">
+                                                        <SelectValue placeholder="Select template" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="classic">Classic</SelectItem>
+                                                        <SelectItem value="modern">Modern</SelectItem>
+                                                        <SelectItem value="minimal">Minimal</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="primary_color">Primary Color</Label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        type="color"
+                                                        className="w-12 h-10 p-1 cursor-pointer"
+                                                        value={primaryColor}
+                                                        onChange={(e) => setPrimaryColor(e.target.value)}
+                                                    />
+                                                    <Input
+                                                        value={primaryColor}
+                                                        onChange={(e) => setPrimaryColor(e.target.value)}
+                                                        placeholder="#000000"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2 flex items-center pt-8">
+                                                <div className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id="show_logo"
+                                                        checked={showLogo}
+                                                        onChange={(e) => setShowLogo(e.target.checked)}
+                                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                    />
+                                                    <Label htmlFor="show_logo">Show Logo on Invoice</Label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <Separator />
+
+                                        <div className="flex justify-end">
+                                            <Button type="submit" disabled={isSavingInvoice}>
+                                                Save Settings
+                                            </Button>
+                                        </div>
+                                    </form>
                                 )}
                             </CardContent>
                         </Card>
