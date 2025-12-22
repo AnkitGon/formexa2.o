@@ -14,6 +14,7 @@ class Invoice extends Model
     protected $fillable = [
         'user_id',
         'client_id',
+        'invoice_template_id',
         'invoice_number',
         'invoice_date',
         'due_date',
@@ -25,15 +26,6 @@ class Invoice extends Model
         'amount_paid',
         'currency',
         'notes',
-        'terms',
-        'currency_symbol',
-        'currency_position',
-        'decimal_precision',
-        'thousands_separator',
-        'decimal_separator',
-        'template_style',
-        'primary_color',
-        'show_logo',
     ];
 
     protected $casts = [

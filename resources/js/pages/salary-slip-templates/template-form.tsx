@@ -18,6 +18,17 @@ const getCsrfToken = () =>
         document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
     )?.content ?? '';
 
+const getCookieValue = (name: string) => {
+    const cookies = document.cookie ? document.cookie.split('; ') : [];
+    for (const cookie of cookies) {
+        const [key, ...rest] = cookie.split('=');
+        if (key === name) {
+            return decodeURIComponent(rest.join('='));
+        }
+    }
+    return '';
+};
+
 type TemplateFormValues = {
     id?: number;
     name?: string;

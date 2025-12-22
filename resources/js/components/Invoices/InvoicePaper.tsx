@@ -27,6 +27,8 @@ export interface InvoiceData {
         unit_price: number | string;
         amount?: number;
         tax_rate?: number | string;
+        tax_type?: 'percent' | 'fixed' | string | null;
+        tax_id?: number | string | null;
     }>;
     // Branding snapshots
     currency_symbol?: string;
@@ -148,8 +150,9 @@ export default function InvoicePaper({ data, business, className }: InvoicePaper
                 <thead>
                     <tr style={{ backgroundColor: isMinimal ? 'transparent' : '#f9fafb' }}>
                         <th className="py-3 px-4 text-left font-bold text-gray-600 border-b">Description</th>
-                        <th className="py-3 px-4 text-right font-bold text-gray-600 border-b w-24">Qty</th>
-                        <th className="py-3 px-4 text-right font-bold text-gray-600 border-b w-32">Price</th>
+                        <th className="py-3 px-4 text-right font-bold text-gray-600 border-b w-20">Qty</th>
+                        <th className="py-3 px-4 text-right font-bold text-gray-600 border-b w-28">Price</th>
+                        <th className="py-3 px-4 text-right font-bold text-gray-600 border-b w-28">Tax</th>
                         <th className="py-3 px-4 text-right font-bold text-gray-600 border-b w-32">Amount</th>
                     </tr>
                 </thead>
@@ -159,6 +162,11 @@ export default function InvoicePaper({ data, business, className }: InvoicePaper
                             <td className="py-3 px-4 text-gray-800">{item.description || <span className="text-gray-300 italic">Item description</span>}</td>
                             <td className="py-3 px-4 text-right text-gray-600">{item.quantity}</td>
                             <td className="py-3 px-4 text-right text-gray-600">{formatCurrency(item.unit_price)}</td>
+                            <td className="py-3 px-4 text-right text-gray-600">
+                                {item.tax_rate
+                                    ? `${item.tax_type === 'fixed' ? formatCurrency(item.tax_rate) : `${item.tax_rate}%`}`
+                                    : '—'}
+                            </td>
                             <td className="py-3 px-4 text-right font-medium text-gray-900">
                                 {formatCurrency(Number(item.quantity) * Number(item.unit_price))}
                             </td>

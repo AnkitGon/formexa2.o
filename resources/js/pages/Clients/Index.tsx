@@ -180,7 +180,13 @@ export default function Index({ clients }: { clients: Paginator<Client> }) {
                     }
                 }}
             >
-                <DialogContent className="max-w-xl">
+                <DialogContent
+                    className="max-w-xl"
+                    onOpenAutoFocus={(event) => {
+                        // Avoid auto-selecting prefilled text when opening the edit modal.
+                        event.preventDefault();
+                    }}
+                >
                     <DialogHeader>
                         <DialogTitle>{dialogMode === 'create' ? 'Create Client' : 'Edit Client'}</DialogTitle>
                     </DialogHeader>

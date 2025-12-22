@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Invoice;
 use App\Models\Client;
+use App\Models\Tax;
+use App\Models\DocumentTemplate;
 use App\Services\InvoiceService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -46,12 +48,19 @@ class InvoiceController extends Controller
         $nextNumber = $this->invoiceService->generateInvoiceNumber(Auth::user());
 
         $settings = UserSetting::getMapForUser(Auth::id());
+        $taxes = Tax::where('user_id', Auth::id())->active()->orderBy('name')->get();
+        $templates = DocumentTemplate::where('user_id', Auth::id())
+            ->where('document_type', 'invoice')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Invoices/Create', [
             'clients' => $clients,
             'nextNumber' => $nextNumber,
             'today' => now()->format('Y-m-d'),
             'business_settings' => $settings,
+            'taxes' => $taxes,
+            'templates' => $templates,
         ]);
     }
 
@@ -67,8 +76,10 @@ class InvoiceController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.01',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.tax_rate' => 'nullable|numeric|min:0',
+            'items.*.tax_type' => 'nullable|in:percent,fixed',
+            'items.*.tax_id' => 'nullable|exists:taxes,id',
+            'invoice_template_id' => 'required|exists:document_templates,id',
             'notes' => 'nullable|string',
-            'terms' => 'nullable|string',
         ]);
 
         // Verify client ownership
@@ -83,8 +94,8 @@ class InvoiceController extends Controller
                 'invoice_number' => $validated['invoice_number'],
                 'invoice_date' => $validated['invoice_date'],
                 'due_date' => $validated['due_date'],
+                'invoice_template_id' => $validated['invoice_template_id'] ?? null,
                 'notes' => $validated['notes'],
-                'terms' => $validated['terms'],
                 'status' => 'draft',
             ]);
 
@@ -95,6 +106,8 @@ class InvoiceController extends Controller
                     'quantity' => $itemData['quantity'],
                     'unit_price' => $itemData['unit_price'],
                     'tax_rate' => $itemData['tax_rate'] ?? 0,
+                    'tax_type' => $itemData['tax_type'] ?? 'percent',
+                    'tax_id' => $itemData['tax_id'] ?? null,
                     'amount' => $amount,
                 ]);
             }
@@ -113,10 +126,17 @@ class InvoiceController extends Controller
 
         $invoice->load(['client', 'items']);
         $clients = Auth::user()->clients()->orderBy('name')->get();
+        $taxes = Tax::where('user_id', Auth::id())->active()->orderBy('name')->get();
+        $templates = DocumentTemplate::where('user_id', Auth::id())
+            ->where('document_type', 'invoice')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Invoices/Edit', [
             'invoice' => $invoice,
-            'clients' => $clients
+            'clients' => $clients,
+            'taxes' => $taxes,
+            'templates' => $templates,
         ]);
     }
 
@@ -136,8 +156,10 @@ class InvoiceController extends Controller
             'items.*.quantity' => 'required|numeric|min:0.01',
             'items.*.unit_price' => 'required|numeric|min:0',
             'items.*.tax_rate' => 'nullable|numeric|min:0',
+            'items.*.tax_type' => 'nullable|in:percent,fixed',
+            'items.*.tax_id' => 'nullable|exists:taxes,id',
+            'invoice_template_id' => 'required|exists:document_templates,id',
             'notes' => 'nullable|string',
-            'terms' => 'nullable|string',
             'status' => 'required|in:draft,sent,paid,partially_paid,overdue,cancelled'
         ]);
 
@@ -153,8 +175,8 @@ class InvoiceController extends Controller
                 'invoice_number' => $validated['invoice_number'],
                 'invoice_date' => $validated['invoice_date'],
                 'due_date' => $validated['due_date'],
+                'invoice_template_id' => $validated['invoice_template_id'] ?? null,
                 'notes' => $validated['notes'],
-                'terms' => $validated['terms'],
                 'status' => $validated['status'],
             ]);
 
@@ -168,6 +190,8 @@ class InvoiceController extends Controller
                     'quantity' => $itemData['quantity'],
                     'unit_price' => $itemData['unit_price'],
                     'tax_rate' => $itemData['tax_rate'] ?? 0,
+                    'tax_type' => $itemData['tax_type'] ?? 'percent',
+                    'tax_id' => $itemData['tax_id'] ?? null,
                     'amount' => $amount,
                 ]);
             }
@@ -184,13 +208,9 @@ class InvoiceController extends Controller
             abort(403);
         }
 
-        $invoice->load(['client', 'items', 'payments']);
+        $invoice->load(['client', 'items']);
         $user = Auth::user();
-
-        // Load settings for business info
-        // We might need to eager load settings or just fetch them
-        // Assuming settings are small, just using lazy loading on User if needed, or we pass them
-        // Ideally we pass specific business info
+        $settings = UserSetting::getMapForUser(Auth::id());
 
         return Inertia::render('Invoices/Show', [
             'invoice' => $invoice,
@@ -198,7 +218,8 @@ class InvoiceController extends Controller
                 'name' => $user->name, // Or a business name setting
                 'email' => $user->email,
                 // Add more from settings if available
-            ]
+            ],
+            'settingsDefaults' => $settings,
         ]);
     }
 

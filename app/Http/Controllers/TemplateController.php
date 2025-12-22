@@ -78,7 +78,7 @@ class TemplateController extends Controller
 
         $data['is_active'] = $request->boolean('is_active', true);
 
-        DocumentTemplate::create($data);
+        DocumentTemplate::create($data + ['user_id' => $request->user()->id]);
 
         return redirect()->route('template.index');
     }

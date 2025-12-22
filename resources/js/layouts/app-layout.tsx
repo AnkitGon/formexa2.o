@@ -1,4 +1,5 @@
 import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import { Toaster } from '@/components/ui/toaster';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, usePage } from '@inertiajs/react';
 import { type ReactNode } from 'react';
@@ -96,6 +97,7 @@ export default ({ children, breadcrumbs, ...props }: AppLayoutProps) => {
                 ) : null}
             </Head>
             {children}
+            <Toaster />
         </AppLayoutTemplate>
     );
 };
